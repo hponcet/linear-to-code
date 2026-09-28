@@ -228,6 +228,26 @@ suite("LinearService integration", () => {
     assert.strictEqual(freshIssue.title, "Fetch 2")
   })
 
+  test("validates title edits before calling Linear and preserves other update fields", async () => {
+    const calls: Record<string, unknown>[] = []
+    const client = createMockClient()
+    client.updateIssue = async (_id, fields) => {
+      calls.push(fields)
+      return {
+        issue: Promise.resolve(createMockIssue({ title: fields.title ?? "Test issue" })),
+      } as never
+    }
+    const service = new LinearService(() => client, new LinearCacheStore())
+    const fields = { title: "  Fix\nlogin  ", priority: 2 }
+    const issue = await service.updateIssue("issue-1", fields)
+    assert.strictEqual(issue.title, "Fix login")
+    assert.deepStrictEqual(calls, [{ title: "Fix login", priority: 2 }])
+    assert.strictEqual(fields.title, "  Fix\nlogin  ")
+    await assert.rejects(service.updateIssue("issue-1", { title: " \n " }), /cannot be empty/)
+    await assert.rejects(service.updateIssue("issue-1", { title: null }), /must be text/)
+    assert.strictEqual(calls.length, 1)
+  })
+
   test("updateIssue invalidates the issue cache", async () => {
     let issueFetchCount = 0
     const service = new LinearService(

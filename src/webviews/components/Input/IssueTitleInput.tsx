@@ -1,100 +1,104 @@
-import { history } from "prosemirror-history"
-import {
-  defaultMarkdownParser,
-  defaultMarkdownSerializer,
-  MarkdownParser,
-  MarkdownSerializer,
-  schema as markdownSchema,
-} from "prosemirror-markdown"
-import { Schema } from "prosemirror-model"
-import { EditorState } from "prosemirror-state"
-import { EditorView } from "prosemirror-view"
-import { useEffect, useRef } from "react"
+import { useEffect, useId, useRef, useState } from "react"
+import { normalizeIssueTitle } from "src/linear/issueTitle"
 
-import placeholderPlugin from "./plugins/placeholder"
-
-import "prosemirror-view/style/prosemirror.css"
+import { Button } from "../Button/Button"
 
 import "./IssueTitleInput.scss"
 
-export type TextEditorProps = {
-  value?: string
-  placeholder?: string
+type IssueTitleInputProps = {
+  value: string
   deleted?: boolean | null
-  onSave?: (value: string) => void
-  onFocus?: () => void
-  onBlur?: () => void
-  style?: React.CSSProperties
-  className?: string
+  onSave: (value: string) => Promise<string | undefined>
 }
 
-const schema = new Schema({
-  nodes: markdownSchema.spec.nodes,
-  marks: markdownSchema.spec.marks,
-})
-
-const mdSerializer = new MarkdownSerializer(
-  defaultMarkdownSerializer.nodes,
-  defaultMarkdownSerializer.marks,
-)
-
-const mdParser = new MarkdownParser(
-  schema,
-  defaultMarkdownParser.tokenizer,
-  defaultMarkdownParser.tokens,
-)
-
-export function IssueTitleInput(props: TextEditorProps) {
-  const { value = "", placeholder, onBlur, onFocus, onSave, style, className, deleted } = props
-
-  const editorEl = useRef<HTMLDivElement>(null)
-  const view = useRef<EditorView | null>(null)
-
-  function handleSave() {
-    const value = mdSerializer.serialize(view.current!.state.doc)
-    if (value !== value) {
-      onSave?.(value)
-    }
-  }
-
-  function handleFocus() {
-    onFocus?.()
-  }
-
-  function handleBlur() {
-    handleSave()
-    onBlur?.()
-  }
+export function IssueTitleInput({ value, deleted, onSave }: IssueTitleInputProps) {
+  const [draft, setDraft] = useState(value)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string>()
+  const dirty = useRef(false)
+  const savePending = useRef(false)
+  const errorId = useId()
 
   useEffect(() => {
-    const plugins = [placeholderPlugin(placeholder ?? "Issue title"), history()]
-
-    const state = EditorState.create({
-      schema,
-      doc: mdParser.parse(value),
-      plugins: plugins,
-    })
-    const currView = new EditorView(editorEl.current!, {
-      state,
-      editable() {
-        return false
-      },
-    })
-    view.current = currView
-    view.current.dom.addEventListener("focus", handleFocus)
-    view.current.dom.addEventListener("blur", handleBlur)
-    return () => {
-      view.current?.dom.removeEventListener("focus", handleFocus)
-      view.current?.dom.removeEventListener("blur", handleBlur)
-      currView.destroy()
-    }
+    if (!dirty.current) setDraft(value)
   }, [value])
 
+  async function save() {
+    if (deleted || savePending.current || !dirty.current) return
+    let title: string
+    try {
+      title = normalizeIssueTitle(draft)
+    } catch (error) {
+      setError((error as Error).message)
+      return
+    }
+    if (title === value) {
+      dirty.current = false
+      setDraft(value)
+      setError(undefined)
+      return
+    }
+
+    savePending.current = true
+    setSaving(true)
+    setError(undefined)
+    try {
+      const savedTitle = await onSave(title)
+      if (savedTitle === undefined) throw new Error("Title was not saved")
+      dirty.current = false
+      setDraft(savedTitle)
+    } catch {
+      setError("Could not save the title. Your changes are kept here.")
+    } finally {
+      savePending.current = false
+      setSaving(false)
+    }
+  }
+
   return (
-    <div
-      className={`linear-issue-title-input ${deleted ? "deleted" : ""} ${className || ""}`}
-      style={style}
-      ref={editorEl}
-    />
+    <div className={`linear-issue-title-input${deleted ? " deleted" : ""}`}>
+      <textarea
+        aria-label="Issue title"
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+        aria-busy={saving}
+        title={deleted ? "Deleted issue" : "Enter to save · Escape to cancel"}
+        placeholder="Issue title"
+        rows={1}
+        value={draft}
+        readOnly={!!deleted || saving}
+        onChange={(event) => {
+          dirty.current = true
+          setDraft(event.target.value)
+          setError(undefined)
+        }}
+        onBlur={() => void save()}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || saving) return
+          if (event.key === "Enter") {
+            event.preventDefault()
+            event.stopPropagation()
+            event.currentTarget.blur()
+          } else if (event.key === "Escape") {
+            event.preventDefault()
+            event.stopPropagation()
+            dirty.current = false
+            setDraft(value)
+            setError(undefined)
+            event.currentTarget.blur()
+          }
+        }}
+      />
+      {error && (
+        <div className="issueTitleFeedback" id={errorId} role="alert">
+          {error}{" "}
+          {draft.trim() && (
+            <Button size="xs" variant="subtle" onClick={() => void save()}>
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

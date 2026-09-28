@@ -1,4 +1,5 @@
 import { Container } from "src/webviews/components/Container/Container"
+import { IssueLocation } from "src/webviews/components/IssueLocation/IssueLocation"
 import { StartWorkContextProvider } from "src/webviews/contexts/StartWorkContext"
 import { useIssueBranches } from "src/webviews/hooks/useGitBranches"
 import { useProps } from "src/webviews/hooks/useProps"
@@ -27,7 +28,7 @@ export function StartWorkWebview() {
   return (
     <StartWorkContextProvider isLoading={!loaded} issueId={issueId} connection={connection}>
       <Container loading={!loaded}>
-        <div className="linearWorkspaceBadge">{connection.name}</div>
+        <IssueLocation />
         <StartWorkContent
           branches={branches}
           currentBranch={currentBranch}

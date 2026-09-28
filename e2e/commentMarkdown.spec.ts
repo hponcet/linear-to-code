@@ -199,7 +199,10 @@ test("uses the shared Markdown pipeline before a mocked sub-issue creation", asy
   const harness = await openIssueWebview(page, "Description.")
 
   await page.getByRole("button", { name: "Add sub-issues" }).click()
-  await page.getByPlaceholder("Issue title").fill("Mocked sub-issue")
+  await page
+    .locator(".createSubIssueContainer")
+    .getByPlaceholder("Issue title")
+    .fill("Mocked sub-issue")
   const description = page.getByRole("textbox", { name: "Sub-issue description" })
   await description.pressSequentially("Sub-issue with **Markdown**.")
   await page.getByRole("button", { name: "Create", exact: true }).click()

@@ -37,6 +37,7 @@ import {
 } from "src/views/myIssues/types"
 import { getCanonicalPrivateLinearAssetUrl } from "src/webviews/components/Editor/markdownPlugins/privateLinearImageUrl"
 
+import { normalizeIssueTitle } from "./issueTitle"
 import { buildNavigationIssueFilter, NavigationFilters, NavigationMetadata } from "./navigation"
 import { fetchAllPreviousPages } from "./pagination"
 import { serializeWorkflowState } from "./serializeForIpc"
@@ -834,6 +835,7 @@ export class LinearService {
 
   async updateIssue(issueId: string, fields: IssueUpdateFields): Promise<Issue> {
     const client = this.#requireClient()
+    if (fields.title !== undefined) fields = { ...fields, title: normalizeIssueTitle(fields.title) }
     const result = await client.updateIssue(issueId, fields)
     const updatedIssue = await result.issue
     if (!updatedIssue) {

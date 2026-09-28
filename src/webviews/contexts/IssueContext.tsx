@@ -6,6 +6,7 @@ import {
   SerializedIssue,
   SerializedIssueLabel,
   SerializedProject,
+  SerializedTeam,
   SerializedUser,
   SerializedWorkflowState,
 } from "src/types/SerializedLinear"
@@ -92,6 +93,7 @@ export type IssueContextValueData = {
       deleteSubIssue: (issueId: SerializedIssue["id"]) => Promise<void>
     }
   }
+  team: SerializedTeam | null
   priorities: IssuePriorityValue[]
   prioritiesLoading: boolean
   issueLabels: SerializedIssueLabel[]
@@ -122,6 +124,7 @@ const IssueContextReact = createContext<IssueContextValueData>({
   meLoading: false,
   issue: {} as SerializedIssue,
   connection: { id: "", name: "", urlKey: "", userId: "", userName: "" },
+  team: null,
   update: {
     issue: async () => Promise.reject(),
     comments: {
@@ -511,16 +514,16 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   const workflowStates = teamMetadata?.workflowStates ?? []
   const workflowStatesLoading = teamMetadataLoading
 
-  const [issueEstimations, issueEstimationsLoading] = useAsyncMemo(async (): Promise<
-    EstimateDataItem[] | null
-  > => {
-    if (!issue?.teamId) return null
-    const team = await panelActions.getTeam(issue.teamId)
+  const [loadedTeam, issueEstimationsLoading] = useAsyncMemo(async () => {
+    return issue?.teamId ? panelActions.getTeam(issue.teamId) : null
+  }, [issueId, issue?.teamId])
+  const team = loadedTeam?.id === issue?.teamId ? loadedTeam : null
+  const issueEstimations = useMemo(() => {
     if (!team?.issueEstimationType || team.issueEstimationType === "notUsed") {
       return null
     }
-    return createEstimateDataItems(team?.issueEstimationType as keyof typeof issueEstimationByType)
-  }, [issueId, issue?.teamId])
+    return createEstimateDataItems(team.issueEstimationType as keyof typeof issueEstimationByType)
+  }, [team])
 
   const [users = [], usersLoading] = useAsyncMemo(async () => {
     return panelActions.getWorkspaceUsers()
@@ -544,6 +547,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
       meLoading,
       issue: issue!,
       connection,
+      team,
       priorities: priorities || [],
       prioritiesLoading,
       issueLabels: issueLabels || [],
@@ -598,6 +602,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
       meLoading,
       issue,
       connection,
+      team,
       priorities,
       prioritiesLoading,
       issueLabels,

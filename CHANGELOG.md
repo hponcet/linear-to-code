@@ -8,6 +8,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- Added inline issue title editing in issue panels, with Enter/blur to save, Escape to cancel, and retry without losing edits when a save fails.
+
 - Added an Unassigned option to the Workspace assignee filter, usable alone or alongside selected users.
 
 - Added a searchable, multi-select Assignees filter to Workspace navigation, with removable user chips and selections saved per workspace and editor project.
@@ -24,6 +26,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Added a hover card on every Linear reference — user, issue, project, document, cycle, milestone, view, and initiative — showing the resolved name plus its own details, such as status and priority for an issue or progress and lead for a project.
 
 ### Changed
+
+- Keep editable issue titles visually unchanged on hover and focus, without input borders or padding, and save without a visible loader that shifts the layout.
+
+- Show workspace, team name, and issue identifier above the header in issue and Start Work panels.
 
 - Improved initials avatars in native issue and pull request lists with crisp SVG outlines from the bundled Inter font and larger, consistently white lettering.
 

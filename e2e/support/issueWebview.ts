@@ -15,6 +15,7 @@ type DescriptionUpdate = IpcRequest & {
 type HarnessState = {
   requests: IpcRequest[]
   unexpectedMessages: string[]
+  updateTitle: (title: string) => void
 }
 
 type ReferenceCard = {
@@ -63,6 +64,10 @@ type HarnessViewer = {
 
 export type IssueWebviewOptions = {
   initialDescription: string
+  initialTitle?: string
+  trashed?: boolean
+  titleUpdateDelayMs?: number
+  titleUpdateFailures?: number
   initialDraft?: string
   descriptionUpdateDelayMs?: number
   descriptionUpdateFailures?: number
@@ -109,8 +114,9 @@ export async function openIssueWebview(
     if (
       message.type() === "error" &&
       !(
-        options.descriptionUpdateFailures &&
-        message.text().includes("E2E description update failure")
+        (options.descriptionUpdateFailures &&
+          message.text().includes("E2E description update failure")) ||
+        (options.titleUpdateFailures && message.text().includes("E2E title update failure"))
       )
     ) {
       runtimeErrors.push(message.text())
@@ -165,6 +171,10 @@ export async function openIssueWebview(
   await page.addInitScript(
     ({
       description,
+      initialTitle,
+      trashed,
+      titleUpdateDelayMs,
+      titleUpdateFailures,
       initialDraft,
       descriptionUpdateDelayMs,
       descriptionUpdateFailures,
@@ -208,13 +218,15 @@ export async function openIssueWebview(
       const now = new Date("2026-01-01T00:00:00.000Z")
       let draft = initialDraft
       let remainingDescriptionUpdateFailures = descriptionUpdateFailures
+      let remainingTitleUpdateFailures = titleUpdateFailures
       let remainingUploadFailures = uploadFailures
       let comments = initialComments.map((comment) => ({ ...comment, reactions: [] }))
       let createdCommentCount = 0
       let issue: MockIssue = {
         id: "issue-e2e",
         identifier: "E2E-1",
-        title: "Paragraph lifecycle",
+        title: initialTitle,
+        trashed,
         description,
         url: "https://example.com/issues/E2E-1",
         number: 1,
@@ -231,7 +243,18 @@ export async function openIssueWebview(
       const requests: IpcRequest[] = []
       const unexpectedMessages: string[] = []
 
-      mockWindow.__linearE2E = { requests, unexpectedMessages }
+      mockWindow.__linearE2E = {
+        requests,
+        unexpectedMessages,
+        updateTitle: (title) => {
+          issue = { ...issue, title, updatedAt: new Date() }
+          window.dispatchEvent(
+            new MessageEvent("message", {
+              data: { action: "updateIssue", payload: issue.updatedAt.getTime() },
+            }),
+          )
+        },
+      }
 
       function send(message: IpcRequest, payload: unknown, error?: string) {
         queueMicrotask(() => {
@@ -375,6 +398,13 @@ export async function openIssueWebview(
               throw new Error("Invalid issue update")
             }
             if (
+              remainingTitleUpdateFailures > 0 &&
+              typeof (message.fields as Record<string, unknown>).title === "string"
+            ) {
+              remainingTitleUpdateFailures -= 1
+              throw new Error("E2E title update failure")
+            }
+            if (
               remainingDescriptionUpdateFailures > 0 &&
               typeof (message.fields as Record<string, unknown>).description === "string"
             ) {
@@ -401,7 +431,11 @@ export async function openIssueWebview(
               send(message, responseFor(message))
             } catch (error) {
               const text = error instanceof Error ? error.message : String(error)
-              if (text !== "E2E description update failure" && text !== "E2E upload failure") {
+              if (
+                text !== "E2E description update failure" &&
+                text !== "E2E title update failure" &&
+                text !== "E2E upload failure"
+              ) {
                 unexpectedMessages.push(text)
               }
               send(message, undefined, text)
@@ -412,12 +446,19 @@ export async function openIssueWebview(
             typeof message.fields === "object" &&
             message.fields !== null &&
             typeof (message.fields as Record<string, unknown>).description === "string"
+          const isTitleUpdate =
+            message.type === "linearUpdateIssue" &&
+            typeof message.fields === "object" &&
+            message.fields !== null &&
+            typeof (message.fields as Record<string, unknown>).title === "string"
           const delay =
             message.type === "uploadLinearFile" && uploadDelayMs
               ? uploadDelayMs
               : isDescriptionUpdate
                 ? descriptionUpdateDelayMs
-                : undefined
+                : isTitleUpdate
+                  ? titleUpdateDelayMs
+                  : undefined
           if (delay) {
             window.setTimeout(respond, delay)
           } else respond()
@@ -428,6 +469,10 @@ export async function openIssueWebview(
     },
     {
       description: options.initialDescription,
+      initialTitle: options.initialTitle ?? "Paragraph lifecycle",
+      trashed: options.trashed ?? false,
+      titleUpdateDelayMs: options.titleUpdateDelayMs ?? 0,
+      titleUpdateFailures: options.titleUpdateFailures ?? 0,
       initialDraft: options.initialDraft,
       descriptionUpdateDelayMs: options.descriptionUpdateDelayMs ?? 0,
       descriptionUpdateFailures: options.descriptionUpdateFailures ?? 0,

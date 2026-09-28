@@ -150,7 +150,12 @@ export function IssueContent() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <IssueTitleInput value={issue?.title} deleted={issue?.trashed} />
+      <IssueTitleInput
+        key={issue.id}
+        value={issue.title}
+        deleted={issue.trashed}
+        onSave={async (title) => (await update.issue(issue.id, { title }))?.title}
+      />
       <IssueParent />
       {draftLoadError ? (
         <div role="alert">

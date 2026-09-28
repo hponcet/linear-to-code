@@ -14,11 +14,7 @@ import { useAsyncEffect } from "../hooks/useAsyncEffect"
 import { useAsyncMemo } from "../hooks/useAsyncMemo"
 import { useIssuePickerLabels } from "../hooks/useIssuePickerLabels"
 import { useLinearApi, vscApi } from "../hooks/useRequestDataUpdate"
-import {
-  createEstimateDataItems,
-  EstimateDataItem,
-  issueEstimationByType,
-} from "../utils/issueEstimateByType"
+import { createEstimateDataItems, issueEstimationByType } from "../utils/issueEstimateByType"
 
 import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
 
@@ -111,18 +107,16 @@ export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
   const workflowStates: SerializedWorkflowState[] = teamMetadata?.workflowStates ?? []
   const workflowStatesLoading = teamMetadataLoading
 
-  const [issueEstimations, issueEstimationsLoading] = useAsyncMemo(async (): Promise<
-    EstimateDataItem[] | null
-  > => {
-    if (!issue?.teamId) {
-      return null
-    }
-    const team = await panelActions.getTeam(issue.teamId)
+  const [loadedTeam, issueEstimationsLoading] = useAsyncMemo(async () => {
+    return issue?.teamId ? panelActions.getTeam(issue.teamId) : null
+  }, [issueId, issue?.teamId])
+  const team = loadedTeam?.id === issue?.teamId ? loadedTeam : null
+  const issueEstimations = useMemo(() => {
     if (!team?.issueEstimationType || team.issueEstimationType === "notUsed") {
       return null
     }
     return createEstimateDataItems(team.issueEstimationType as keyof typeof issueEstimationByType)
-  }, [issueId, issue?.teamId])
+  }, [team])
 
   const [users = [], usersLoading] = useAsyncMemo(async () => {
     return panelActions.getWorkspaceUsers()
@@ -136,6 +130,7 @@ export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
       meLoading: false,
       issue: issue!,
       connection,
+      team,
       priorities: priorities || [],
       prioritiesLoading,
       issueLabels,
@@ -181,6 +176,7 @@ export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
     [
       issue,
       connection,
+      team,
       priorities,
       prioritiesLoading,
       issueLabels,

@@ -1,15 +1,42 @@
 /* stylelint-disable selector-class-pattern */
+/* stylelint-disable custom-property-pattern */
 
 .linear-issue-title-input {
-  font-size: 24px;
-  font-weight: 600;
+  min-width: 0;
+  margin: 0.6rem 0;
 
-  .deleted {
+  textarea {
+    display: block;
+    box-sizing: border-box;
+    field-sizing: content;
+    width: 100%;
+    min-height: 1.4em;
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.4;
+    resize: none;
+    overflow-wrap: anywhere;
+  }
+
+  &.deleted textarea {
     text-decoration: line-through;
     color: var(--lm-color-text-muted);
+  }
 
-    &::after {
-      content: "[deleted] ";
+  .issueTitleFeedback {
+    margin: 4px 0;
+    color: var(--lm-color-text-muted);
+    font-size: 12px;
+
+    &[role="alert"] {
+      color: var(--vscode-errorForeground);
     }
   }
 }
