@@ -20,6 +20,17 @@ type LabelsPickerProps = Omit<TagPickerProps, "onChange" | "value" | "data" | "s
 export function LabelsPicker(props: LabelsPickerProps) {
   const { issue, onChange, inline, size, style, className, ...tagPickerProps } = props
   const { issueLabels, issueLabelsLoading } = useIssueContext()
+  const editable = !props.disabled && !props.readOnly && !props.plaintext
+  const placeholder = (
+    <span
+      key="add-label-placeholder"
+      className="labelPickerPlaceholder"
+      style={{ cursor: editable ? "pointer" : "default" }}
+    >
+      <LabelIcon size={14} style={{ marginRight: 6 }} />
+      {editable ? "Add a label..." : "Labels"}
+    </span>
+  )
 
   const cacheData = useMemo(
     () =>
@@ -43,24 +54,17 @@ export function LabelsPicker(props: LabelsPickerProps) {
       data={cacheData}
       value={issue?.labelIds || []}
       onChange={onChange}
-      is-empty={String(!issue?.labelIds || issue.labelIds.length === 0)}
-      placeholder={
-        <div
-          className="labelPickerPlaceholder"
-          style={{ cursor: !props.disabled ? "pointer" : "default" }}
-        >
-          <LabelIcon size={14} style={{ marginRight: 6 }} /> Labels
-        </div>
-      }
+      placeholder={placeholder}
       cleanable={false}
       searchable
       renderOption={(_, item) => <Label key={item.value} issueLabel={item.issueLabel} inline />}
-      renderValue={(_, items) =>
-        items.map((item) => {
+      renderValue={(_, items) => {
+        const labels = items.map((item) => {
           if (!item) return null
           return <Label key={item.value} issueLabel={item.issueLabel} inline={inline} size={size} />
         })
-      }
+        return editable && items.length > 0 ? [...labels, placeholder] : labels
+      }}
       {...tagPickerProps}
     />
   )

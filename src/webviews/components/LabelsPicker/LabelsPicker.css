@@ -3,10 +3,6 @@
   background-color: transparent !important;
   border-color: transparent !important;
   outline: none !important;
-
-  &[is-empty="true"] {
-    max-width: 106px !important;
-  }
 }
 
 .pickerListOption {
@@ -15,8 +11,10 @@
 }
 
 .labelPickerPlaceholder {
-  display: flex;
+  display: inline-flex;
+  align-self: center;
   align-items: center;
+  white-space: nowrap;
   color: var(--rs-text-secondary);
   opacity: 0.5;
 }

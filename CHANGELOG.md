@@ -18,6 +18,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Changed
 
+- Editable label pickers now show "Add a label...", including beside selected labels.
 - A Mermaid diagram now shows either its picture or its source, with an Edit diagram / View diagram switch in the top-right corner of the block, instead of stacking both. A diagram that fails to render keeps its source open, and a newly created one starts on its source.
 - Clicking an issue reference now opens that issue in the extension instead of the browser; every other reference still opens on Linear.
 - Unsupported or non-portable Markdown is now shown as escaped read-only source and blocked at the final Linear mutation boundary instead of being silently rewritten.
@@ -32,6 +33,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- Fixed assigned labels and label choices disappearing from issue details and Start Work when an issue belongs to a project.
 - Fixed menu, hover card, and tooltip shadows glowing white on dark themes because they were tinted with the foreground colour instead of black.
 - Fixed a project or document reference making a whole description read-only, because their Linear entity tags were parsed as raw HTML.
 - Fixed an invalid Mermaid diagram leaving Mermaid's own "Syntax error" graphic stuck at the bottom of the webview, outside the code block that reports the error.
