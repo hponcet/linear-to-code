@@ -219,30 +219,35 @@ export class MyIssuesView
 
   public async fetchDatas() {
     const generation = ++this.metadataGeneration
-    try {
-      const [me, teams, states, metadata] = await Promise.all([
-        this.service.getViewer(),
-        this.service.getTeams(),
-        this.service.getWorkflowStatesByTeam(),
-        this.service.getNavigationMetadata(),
-      ])
-      if (!this.active || generation !== this.metadataGeneration) return
-      this.#me = me
-      this.#teams = teams
-      this.#workflowStatesByTeam = states
-      this.metadata = metadata
-      await this.setFilters(this.filters)
-    } catch (error) {
-      if (this.active && generation === this.metadataGeneration) this.showFetchError(error)
-    }
+    await window.withProgress({ location: { viewId: Views.myIssues } }, async () => {
+      try {
+        const [me, teams, states, metadata] = await Promise.all([
+          this.service.getViewer(),
+          this.service.getTeams(),
+          this.service.getWorkflowStatesByTeam(),
+          this.service.getNavigationMetadata(),
+        ])
+        if (!this.active || generation !== this.metadataGeneration) return
+        this.#me = me
+        this.#teams = teams
+        this.#workflowStatesByTeam = states
+        this.metadata = metadata
+        await this.setFilters(this.filters)
+      } catch (error) {
+        if (this.active && generation === this.metadataGeneration) this.showFetchError(error)
+      }
+    })
   }
 
   public async setFilters(filters: NavigationFilters) {
     this.generation += 1
-    this.#myIssues.clear()
-    this.#treeItems.clear()
-    this.#onDidChangeTreeData.fire()
-    this.filters = this.metadata ? normalizeNavigationFilters(filters, this.metadata) : filters
+    const next = this.metadata ? normalizeNavigationFilters(filters, this.metadata) : filters
+    if (JSON.stringify(next) !== JSON.stringify(this.filters)) {
+      this.#myIssues.clear()
+      this.#treeItems.clear()
+      this.#onDidChangeTreeData.fire()
+    }
+    this.filters = next
     await this.#context.workspaceState.update(
       `linearToCode.navigation.${this.workspaceId}`,
       this.filters,
@@ -331,39 +336,42 @@ export class MyIssuesView
     if (!this.active || !this.metadata) return
     const generation = ++this.generation
     const filters = this.filters
+    const preserveIssues = this.#myIssues.size > 0
+    const nextIssues = new Map<string, Issue>()
     let after: string | undefined
-    if (this.#treeView) this.#treeView.message = "Loading issues..."
-    try {
-      do {
-        const page = await this.service.getNavigationIssues(filters, after)
-        if (!this.active || generation !== this.generation) return
-        const issues = after ? [...this.#myIssues.values(), ...page.issues] : page.issues
-        await this._refreshAssigneeIcons(issues, generation)
-        if (!this.active || generation !== this.generation) return
-        this.error = undefined
-        if (!after) this.#myIssues.clear()
-        page.issues.forEach((issue) => {
-          Object.assign(issue, { workspaceId: this.workspaceId })
-          this._updateWebviewsIfNeeded(issue)
-          this.#myIssues.set(issue.id, issue)
-        })
-        after = page.nextCursor ?? undefined
-        this.#treeItems.clear()
-        if (this.#treeView) {
-          this.#treeView.title = "Issues"
-          this.#treeView.description = `${this.#myIssues.size} ${after ? "loaded · partial list" : "issues"}`
-          this.#treeView.message = after
-            ? "Loading remaining issues..."
-            : this.#myIssues.size
+    await window.withProgress({ location: { viewId: Views.myIssues } }, async () => {
+      try {
+        do {
+          const page = await this.service.getNavigationIssues(filters, after)
+          if (!this.active || generation !== this.generation) return
+          page.issues.forEach((issue) => {
+            Object.assign(issue, { workspaceId: this.workspaceId })
+            nextIssues.set(issue.id, issue)
+          })
+          after = page.nextCursor ?? undefined
+          // Keep the current tree intact until its complete replacement is available.
+          if (preserveIssues && after) continue
+          await this._refreshAssigneeIcons([...nextIssues.values()], generation)
+          if (!this.active || generation !== this.generation) return
+          this.error = undefined
+          this.#myIssues = new Map(nextIssues)
+          const updatedIssues = preserveIssues ? nextIssues.values() : page.issues
+          for (const issue of updatedIssues) this._updateWebviewsIfNeeded(issue)
+          this.#treeItems.clear()
+          if (this.#treeView) {
+            this.#treeView.title = "Issues"
+            this.#treeView.description = `${this.#myIssues.size} ${after ? "loaded · partial list" : "issues"}`
+            this.#treeView.message = this.#myIssues.size
               ? undefined
               : "No issues match these filters."
-        }
-        this.#onDidChangeTreeData.fire()
-        workspaceChanges.fire()
-      } while (after && this.active && generation === this.generation)
-    } catch (error) {
-      if (generation === this.generation) this.showFetchError(error)
-    }
+          }
+          this.#onDidChangeTreeData.fire()
+          workspaceChanges.fire()
+        } while (after && this.active && generation === this.generation)
+      } catch (error) {
+        if (generation === this.generation) this.showFetchError(error)
+      }
+    })
   }
 
   public async searchIssues(): Promise<void> {

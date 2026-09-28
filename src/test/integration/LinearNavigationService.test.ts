@@ -4,6 +4,7 @@ import { LinearClient } from "@linear/sdk"
 
 import { LinearService } from "../../linear/LinearService"
 import { defaultNavigationFilters } from "../../linear/navigation"
+import { createLinearConnection } from "../support/linearConnection"
 
 suite("Linear navigation API", () => {
   test("loads 100 issues per page and invalidates every page after membership changes", async () => {
@@ -46,20 +47,14 @@ suite("Linear navigation API", () => {
   })
 
   test("metadata includes accessible teams, all pages and cross-team projects", async () => {
-    const connection = <T>(nodes: T[], rest: T[] = []) => ({
-      nodes,
-      pageInfo: { hasPreviousPage: false, hasNextPage: rest.length > 0 },
-      fetchNext: async () => ({
-        nodes: rest,
-        pageInfo: { hasPreviousPage: false, hasNextPage: false },
-      }),
-    })
+    const connection = <T>(nodes: T[], rest: T[] = []) =>
+      createLinearConnection(rest.length ? [nodes, rest] : [nodes])
     let projectReads = 0
     const service = new LinearService(
       () =>
         ({
           teams: async () =>
-            connection([{ id: "team-a", name: "A" }], [{ id: "team-b", name: "B" }]),
+            connection([{ id: "team-a", name: "Desktop" }], [{ id: "team-b", name: "Mobile" }]),
           projects: async () => {
             projectReads++
             return connection([
@@ -71,7 +66,11 @@ suite("Linear navigation API", () => {
             ])
           },
           cycles: async () => connection([]),
-          workflowStates: async () => connection([{ id: "state", name: "Todo", teamId: "team-a" }]),
+          workflowStates: async () =>
+            connection(
+              [{ id: "desktop-todo", name: "Todo", teamId: "team-a" }],
+              [{ id: "mobile-todo", name: "Todo", teamId: "team-b" }],
+            ),
         }) as unknown as LinearClient,
     )
     const metadata = await service.getNavigationMetadata()
@@ -81,6 +80,17 @@ suite("Linear navigation API", () => {
     )
     assert.deepStrictEqual(metadata.projects[0].teamIds, ["team-a", "team-b"])
     assert.deepStrictEqual(metadata.cycles, [])
+    assert.deepStrictEqual(
+      metadata.states.map(({ id, name, teamId }) => ({
+        id,
+        name,
+        team: metadata.teams.find((team) => team.id === teamId)?.name,
+      })),
+      [
+        { id: "desktop-todo", name: "Todo", team: "Desktop" },
+        { id: "mobile-todo", name: "Todo", team: "Mobile" },
+      ],
+    )
     await service.getNavigationMetadata()
     assert.strictEqual(projectReads, 1)
     service.invalidateAll()

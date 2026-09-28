@@ -41,6 +41,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- Kept the existing issue tree visible during manual and automatic refreshes, with native view progress and a single update after all pages load. Failed refreshes preserve the previous list.
+
+- Fixed repeated statuses from the first teams dominating the Workspace status filter by avoiding duplicate accumulation of Linear SDK pages. Each status keeps its own team label.
+
 - Fixed Duplicate workflow states showing a question mark by adding their SVG icon to issue panels, status pickers, references, history, and the native issue tree.
 
 - Prevented stale issue pages and invalidated in-flight cache entries from replacing newer navigation results. Ticket changes now recheck membership in the current API-filtered list.

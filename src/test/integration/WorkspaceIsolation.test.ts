@@ -115,6 +115,87 @@ suite("Workspace isolation", () => {
     assert.strictEqual(current.error, "Second page unavailable")
   })
 
+  for (const refresh of ["manual", "automatic"]) {
+    test(`${refresh} refresh keeps the existing tree until every page is ready`, async () => {
+      const current = view(context(), "a")
+      const issue = (id: string, title = id) =>
+        ({ id, title, teamId: "team", stateId: "todo", __key: "issue" }) as Issue
+      const previous = [issue("first", "Before"), issue("later"), issue("removed")]
+      Object.assign(current.service, {
+        getTeams: async () => ({ team: { id: "team", __key: "team" } }),
+        getWorkflowStatesByTeam: async () => ({ team: { todo: state } }),
+        getNavigationMetadata: async () => metadata,
+        getNavigationIssues: async () => ({ issues: previous }),
+      })
+      await current.fetchDatas()
+      let release!: (page: { issues: Issue[] }) => void
+      const pending = new Promise<{ issues: Issue[] }>((resolve) => {
+        release = resolve
+      })
+      let started!: () => void
+      const startedPromise = new Promise<void>((resolve) => {
+        started = resolve
+      })
+      Object.assign(current.service, {
+        getNavigationIssues: async (_filters: unknown, after?: string) => {
+          if (!after) return { issues: [issue("first", "After")], nextCursor: "second" }
+          started()
+          return pending
+        },
+      })
+      const snapshots: string[][] = []
+      const listener = current.onDidChangeTreeData(() => {
+        snapshots.push((current.getChildren(state) as Issue[]).map(({ id }) => id))
+      })
+      try {
+        const refreshing =
+          refresh === "manual" ? current.refresh() : current.issuesActions.refreshIssues()
+        assert.deepStrictEqual(current.getChildren(state), previous)
+        await startedPromise
+        assert.deepStrictEqual(current.getChildren(state), previous)
+        assert.deepStrictEqual(snapshots, [])
+        assert.deepStrictEqual(
+          (current.getChildren() as WorkflowState[]).map(({ id }) => id),
+          ["todo"],
+        )
+        release({ issues: [issue("later"), issue("new")] })
+        await refreshing
+        assert.strictEqual(current.error, undefined)
+        assert.deepStrictEqual(snapshots, [["first", "later", "new"]])
+        assert.strictEqual((current.getChildren(state) as Issue[])[0].title, "After")
+      } finally {
+        listener.dispose()
+      }
+    })
+  }
+
+  for (const failedPage of ["first", "second"]) {
+    test(`preserves the previous list if refresh fails on the ${failedPage} page`, async () => {
+      const current = view(context(), "a")
+      const previous = [{ id: "existing", stateId: "todo" } as Issue]
+      Object.assign(current.service, {
+        getNavigationIssues: async () => ({ issues: previous }),
+      })
+      await current.setFilters(defaultNavigationFilters())
+      Object.assign(current.service, {
+        getNavigationIssues: async (_filters: unknown, after?: string) => {
+          if (failedPage === "first" || after) throw new Error("Refresh unavailable")
+          return { issues: [{ id: "new", stateId: "todo" } as Issue], nextCursor: "second" }
+        },
+      })
+      const listener = current.onDidChangeTreeData(() => {
+        assert.fail("A failed refresh must not replace the existing tree")
+      })
+      try {
+        await current.issuesActions.refreshIssues()
+        assert.deepStrictEqual(current.getChildren(state), previous)
+        assert.strictEqual(current.error, "Refresh unavailable")
+      } finally {
+        listener.dispose()
+      }
+    })
+  }
+
   test("ignores late pages after filter changes and deactivation", async () => {
     const current = view(context(), "a")
     let release!: (page: { issues: Issue[]; nextCursor?: string }) => void

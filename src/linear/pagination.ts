@@ -9,21 +9,16 @@ type PaginatedConnection<T> = {
 }
 
 export async function fetchAllConnectionPages<T>(connection: PaginatedConnection<T>): Promise<T[]> {
-  let head = connection
-
-  while (head.pageInfo.hasPreviousPage) {
-    head = await head.fetchPrevious()
+  while (connection.pageInfo.hasPreviousPage) {
+    connection = await connection.fetchPrevious()
   }
 
-  const nodes = [...head.nodes]
-  let tail = head
-
-  while (tail.pageInfo.hasNextPage && tail.fetchNext) {
-    tail = await tail.fetchNext()
-    nodes.push(...tail.nodes)
+  while (connection.pageInfo.hasNextPage && connection.fetchNext) {
+    connection = await connection.fetchNext()
   }
 
-  return nodes
+  // The Linear SDK prepends/appends pages to the connection's existing nodes.
+  return [...connection.nodes]
 }
 
 export async function fetchAllPreviousPages<T>(connection: PaginatedConnection<T>): Promise<T[]> {
