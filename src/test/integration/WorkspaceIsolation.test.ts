@@ -1,8 +1,8 @@
 import * as assert from "assert"
 
-import { commands, ExtensionContext } from "vscode"
+import { commands, ExtensionContext, QuickPickItem, QuickPickOptions, window } from "vscode"
 
-import { Commands } from "../../constants"
+import { Commands, UNASSIGNED_ASSIGNEE_ID } from "../../constants"
 import { Controller } from "../../controller"
 import * as auth from "../../linear/auth"
 import { defaultNavigationFilters, NavigationMetadata } from "../../linear/navigation"
@@ -15,13 +15,29 @@ import { IssueWebview } from "../../panels/IssueWebview"
 import { StartWorkWebview } from "../../panels/StartWorkWebview"
 import { MyIssuesView } from "../../views/myIssues/MyIssuesView"
 import { Issue, WorkflowState } from "../../views/myIssues/types"
+import { NavigationView } from "../../views/NavigationView"
 import { memoryState, workspaceHarness } from "../support/linearWorkspaces"
 
 const metadata: NavigationMetadata = {
   teams: [{ id: "team", name: "Team" }],
   projects: [],
   cycles: [],
-  states: [{ id: "todo", name: "Todo", color: "#888888", teamId: "team" }],
+  states: [
+    {
+      id: "todo",
+      name: "Todo",
+      color: "#888888",
+      teamId: "team",
+      type: "unstarted",
+      position: 0,
+      stateProgress: 0,
+      stateTypeLength: 1,
+    },
+  ],
+  users: [
+    { id: "alice", name: "Alice", email: "alice@example.com" },
+    { id: "bob", name: "Bob", email: "bob@example.com" },
+  ],
 }
 const state = { id: "todo", __key: "workflowState" } as WorkflowState
 
@@ -303,14 +319,138 @@ suite("Workspace isolation", () => {
       view: "myIssues",
       cycle: "none",
     })
-    await view(firstWindow, "b").setFilters({ ...defaultNavigationFilters(), stateIds: ["todo"] })
+    await view(firstWindow, "b").setFilters({
+      ...defaultNavigationFilters(),
+      stateIds: ["todo"],
+      assigneeIds: ["alice", "bob"],
+    })
     await view(secondWindow, "a").setFilters(defaultNavigationFilters())
     assert.strictEqual(view(firstWindow, "a").filters.view, "myIssues")
     assert.deepStrictEqual(view(firstWindow, "b").filters.stateIds, ["todo"])
+    assert.deepStrictEqual(view(firstWindow, "b").filters.assigneeIds, ["alice", "bob"])
+    assert.deepStrictEqual(view(firstWindow, "a").filters.assigneeIds, [])
+    assert.deepStrictEqual(view(secondWindow, "b").filters.assigneeIds, [])
     assert.strictEqual(view(secondWindow, "a").filters.view, "allIssues")
     assert.strictEqual(firstWindow.workspaceState.get(auth.ACTIVE_WORKSPACE_KEY), "a")
     assert.strictEqual(secondWindow.workspaceState.get(auth.ACTIVE_WORKSPACE_KEY), "b")
     assert.strictEqual(h.metadata.get(auth.ACTIVE_WORKSPACE_KEY), undefined)
+  })
+
+  test("selects assignees through the native picker without conflicting with My issues", async () => {
+    const ctx = context()
+    const current = view(ctx, "a")
+    current.metadata = {
+      ...metadata,
+      users: [...metadata.users, { id: "user-a", name: "Me", email: "me@example.com" }],
+    }
+    current.filters.view = "myIssues"
+    Object.assign(current.service, { getNavigationIssues: async () => ({ issues: [] }) })
+    const originalViewer = Object.getOwnPropertyDescriptor(Controller, "issueViewer")!
+    const originalActiveWorkspace = auth.getActiveWorkspaceId
+    const originalQuickPick = window.showQuickPick
+    let activeId = "a"
+    let answer: string[] | undefined = ["alice", "bob"]
+    let menuAnswer = "assignee"
+    let items: (QuickPickItem & { value: string })[] = []
+    Object.defineProperty(Controller, "issueViewer", { configurable: true, get: () => current })
+    Object.assign(auth, { getActiveWorkspaceId: () => activeId })
+    window.showQuickPick = (async (
+      choices: (QuickPickItem & { value: string })[],
+      options: QuickPickOptions,
+    ) => {
+      if (options.title === "Filter issues")
+        return choices.find(({ value }) => value === menuAnswer)
+      if (options.title === "Issue view") return choices.find(({ value }) => value === "myIssues")
+      assert.strictEqual(options.title, "Issue assignees")
+      assert.strictEqual(options.canPickMany, true)
+      assert.strictEqual(options.matchOnDescription, true)
+      items = choices
+      return answer ? choices.filter(({ value }) => answer!.includes(value)) : undefined
+    }) as unknown as typeof window.showQuickPick
+    // Exercise picker behavior without registering a second native navigation view.
+    const navigation: NavigationView = Object.assign(Object.create(NavigationView.prototype), {
+      context: ctx,
+      busy: false,
+      disposables: [],
+    })
+    try {
+      await navigation.select("filters")
+      assert.deepStrictEqual(
+        items.filter(({ picked }) => picked).map(({ value }) => value),
+        ["user-a"],
+      )
+      assert.deepStrictEqual(current.filters.assigneeIds, ["alice", "bob"])
+      assert.strictEqual(current.filters.view, "allIssues")
+      assert.deepStrictEqual(navigation.snapshot().filters, [
+        {
+          id: "assignee:alice",
+          kind: "assignee",
+          label: "Alice",
+          description: "Assignee: alice@example.com",
+          user: metadata.users[0],
+        },
+        {
+          id: "assignee:bob",
+          kind: "assignee",
+          label: "Bob",
+          description: "Assignee: bob@example.com",
+          user: metadata.users[1],
+        },
+      ])
+      current.filters.cycle = "current"
+      current.filters.stateIds = ["todo"]
+      const categorized = navigation.snapshot().filters
+      assert.deepStrictEqual(
+        categorized.map(({ kind }) => kind),
+        ["cycle", "status", "assignee", "assignee"],
+      )
+      assert.ok(categorized[0].kind === "cycle" && categorized[0].cycle?.isActive)
+      assert.ok(
+        categorized[1].kind === "status" && categorized[1].workflowState.type === "unstarted",
+      )
+      answer = undefined
+      await navigation.select("assignee")
+      assert.deepStrictEqual(
+        items.filter(({ picked }) => picked).map(({ value }) => value),
+        ["alice", "bob"],
+      )
+      assert.deepStrictEqual(current.filters.assigneeIds, ["alice", "bob"])
+      await navigation.select("view")
+      assert.strictEqual(current.filters.view, "myIssues")
+      assert.deepStrictEqual(current.filters.assigneeIds, [])
+      answer = []
+      await navigation.select("assignee")
+      assert.strictEqual(current.filters.view, "allIssues")
+      assert.deepStrictEqual(current.filters.assigneeIds, [])
+      answer = ["alice", UNASSIGNED_ASSIGNEE_ID]
+      await navigation.select("assignee")
+      assert.strictEqual(items[0].value, UNASSIGNED_ASSIGNEE_ID)
+      assert.deepStrictEqual(current.filters.assigneeIds, [UNASSIGNED_ASSIGNEE_ID, "alice"])
+      assert.deepStrictEqual(
+        navigation.snapshot().filters.find(({ id }) => id === `assignee:${UNASSIGNED_ASSIGNEE_ID}`),
+        {
+          id: `assignee:${UNASSIGNED_ASSIGNEE_ID}`,
+          kind: "assignee",
+          label: "Unassigned",
+          description: "Assignee",
+          user: null,
+        },
+      )
+      menuAnswer = "clear"
+      await navigation.select("filters")
+      assert.deepStrictEqual(current.filters.assigneeIds, [])
+      window.showQuickPick = (async () => {
+        activeId = "b"
+        return [{ value: "alice" }]
+      }) as unknown as typeof window.showQuickPick
+      await navigation.select("assignee")
+      assert.deepStrictEqual(current.filters.assigneeIds, [])
+    } finally {
+      navigation.dispose()
+      window.showQuickPick = originalQuickPick
+      Object.assign(auth, { getActiveWorkspaceId: originalActiveWorkspace })
+      Object.defineProperty(Controller, "issueViewer", originalViewer)
+    }
   })
 
   test("open issue and Start Work operations stay in A while the active service is B", async () => {

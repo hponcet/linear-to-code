@@ -1,5 +1,6 @@
 import * as assert from "assert"
 
+import { UNASSIGNED_ASSIGNEE_ID } from "../../constants"
 import {
   buildNavigationIssueFilter,
   defaultNavigationFilters,
@@ -19,8 +20,30 @@ export const navigationMetadata: NavigationMetadata = {
   ],
   cycles: [{ id: "cycle", name: "Cycle 1", teamId: "team" }],
   states: [
-    { id: "todo", name: "Todo", teamId: "team", color: "#888888" },
-    { id: "design-todo", name: "Todo", teamId: "design", color: "#444444" },
+    {
+      id: "todo",
+      name: "Todo",
+      teamId: "team",
+      color: "#888888",
+      type: "unstarted",
+      position: 0,
+      stateProgress: 0,
+      stateTypeLength: 1,
+    },
+    {
+      id: "design-todo",
+      name: "Todo",
+      teamId: "design",
+      color: "#444444",
+      type: "unstarted",
+      position: 0,
+      stateProgress: 0,
+      stateTypeLength: 1,
+    },
+  ],
+  users: [
+    { id: "alice", name: "Alice", email: "alice@example.com" },
+    { id: "bob", name: "Bob", email: "bob@example.com" },
   ],
 }
 
@@ -35,6 +58,7 @@ suite("Linear navigation filters", () => {
           view: "myIssues",
           cycle: "current",
           stateIds: ["todo", "done"],
+          assigneeIds: [],
         },
         "me",
       ),
@@ -59,12 +83,65 @@ suite("Linear navigation filters", () => {
     )
   })
 
+  test("combines multiple assignees with other filters and keeps My issues exclusive", () => {
+    const filters = {
+      ...defaultNavigationFilters(),
+      teamId: "team",
+      projectId: "shared",
+      cycle: "none" as const,
+      stateIds: ["todo"],
+      assigneeIds: ["alice", "bob"],
+    }
+    assert.deepStrictEqual(buildNavigationIssueFilter(filters, "me"), {
+      team: { id: { eq: "team" } },
+      project: { id: { eq: "shared" } },
+      cycle: { null: true },
+      state: { id: { in: ["todo"] } },
+      assignee: { id: { in: ["alice", "bob"] } },
+    })
+    const personal = { ...filters, view: "myIssues" as const }
+    assert.deepStrictEqual(buildNavigationIssueFilter(personal, "me").assignee, {
+      id: { eq: "me" },
+    })
+    assert.deepStrictEqual(normalizeNavigationFilters(personal, navigationMetadata).assigneeIds, [])
+  })
+
+  test("filters unassigned tickets alone or alongside users without sending the marker as a user ID", () => {
+    const filters = {
+      ...defaultNavigationFilters(),
+      assigneeIds: [UNASSIGNED_ASSIGNEE_ID],
+      projectId: "shared",
+    }
+    assert.deepStrictEqual(buildNavigationIssueFilter(filters, "me"), {
+      project: { id: { eq: "shared" } },
+      assignee: { null: true },
+    })
+    filters.assigneeIds.push("alice", "bob")
+    assert.deepStrictEqual(buildNavigationIssueFilter(filters, "me").assignee, {
+      or: [{ null: true }, { id: { in: ["alice", "bob"] } }],
+    })
+    assert.deepStrictEqual(
+      normalizeNavigationFilters(restoreNavigationFilters(filters), {
+        ...navigationMetadata,
+        users: [],
+      }).assigneeIds,
+      [UNASSIGNED_ASSIGNEE_ID],
+    )
+    assert.deepStrictEqual(
+      buildNavigationIssueFilter({ ...filters, view: "myIssues" }, "me").assignee,
+      {
+        id: { eq: "me" },
+      },
+    )
+  })
+
   test("keeps cross-team projects and clears incompatible or inaccessible filters", () => {
     const filters = {
       ...defaultNavigationFilters(),
       projectId: "shared",
       stateIds: ["todo", "design-todo", "removed"],
       cycle: { id: "cycle" },
+      assigneeIds: ["alice", "bob", "removed"],
     }
     assert.deepStrictEqual(normalizeNavigationFilters(filters, navigationMetadata).stateIds, [
       "todo",
@@ -73,6 +150,7 @@ suite("Linear navigation filters", () => {
     const scoped = normalizeNavigationFilters({ ...filters, teamId: "design" }, navigationMetadata)
     assert.strictEqual(scoped.projectId, "shared")
     assert.deepStrictEqual(scoped.stateIds, ["design-todo"])
+    assert.deepStrictEqual(scoped.assigneeIds, ["alice", "bob"])
     assert.strictEqual(scoped.cycle, "any")
     assert.strictEqual(
       normalizeNavigationFilters(
@@ -86,16 +164,27 @@ suite("Linear navigation filters", () => {
       projects: [],
       cycles: [],
       states: [],
+      users: [],
     })
     assert.strictEqual(removed.projectId, undefined)
     assert.strictEqual(removed.cycle, "any")
     assert.deepStrictEqual(removed.stateIds, [])
+    assert.deepStrictEqual(removed.assigneeIds, [])
   })
 
   test("restores recognized stored values and tolerates old or malformed state", () => {
     assert.deepStrictEqual(
-      restoreNavigationFilters({ cycle: null, stateIds: "invalid", view: "currentCycle" }),
+      restoreNavigationFilters({
+        cycle: null,
+        stateIds: "invalid",
+        assigneeIds: "invalid",
+        view: "currentCycle",
+      }),
       defaultNavigationFilters(),
+    )
+    assert.deepStrictEqual(
+      restoreNavigationFilters({ assigneeIds: ["alice", "alice", "bob", 1, null, ""] }).assigneeIds,
+      ["alice", "bob"],
     )
     assert.deepStrictEqual(
       restoreNavigationFilters({

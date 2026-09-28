@@ -1,4 +1,4 @@
-import { Commands, Views } from "src/constants"
+import { Commands, UNASSIGNED_ASSIGNEE_ID, Views } from "src/constants"
 import { Controller } from "src/controller"
 import {
   getActiveWorkspaceId,
@@ -30,6 +30,7 @@ const SELECTORS: NavigationSelector[] = [
   "filters",
   "cycle",
   "status",
+  "assignee",
   "connect",
   "reconnect",
 ]
@@ -83,6 +84,13 @@ export class NavigationView implements WebviewViewProvider, Disposable {
       const cycle = filters.cycle
       result.filters.push({
         id: "cycle",
+        kind: "cycle",
+        cycle:
+          typeof cycle === "object"
+            ? (metadata?.cycles.find(({ id }) => id === cycle.id) ?? null)
+            : cycle === "current"
+              ? { isActive: true }
+              : null,
         label:
           typeof cycle === "object"
             ? (metadata?.cycles.find(({ id }) => id === cycle.id)?.name ?? "Cycle")
@@ -96,9 +104,31 @@ export class NavigationView implements WebviewViewProvider, Disposable {
       if (state)
         result.filters.push({
           id,
+          kind: "status",
           label: state.name,
-          color: state.color,
+          workflowState: state,
           description: metadata?.teams.find((team) => team.id === state.teamId)?.name,
+        })
+    }
+    for (const id of filters.assigneeIds) {
+      if (id === UNASSIGNED_ASSIGNEE_ID) {
+        result.filters.push({
+          id: `assignee:${id}`,
+          kind: "assignee",
+          label: "Unassigned",
+          description: "Assignee",
+          user: null,
+        })
+        continue
+      }
+      const user = metadata?.users.find((item) => item.id === id)
+      if (user)
+        result.filters.push({
+          id: `assignee:${id}`,
+          kind: "assignee",
+          label: user.name,
+          description: `Assignee: ${user.email}`,
+          user,
         })
     }
     return result
@@ -141,6 +171,7 @@ export class NavigationView implements WebviewViewProvider, Disposable {
           const filters = {
             ...viewer.filters,
             stateIds: viewer.filters.stateIds.filter((id) => id !== message.id),
+            assigneeIds: viewer.filters.assigneeIds.filter((id) => `assignee:${id}` !== message.id),
           }
           if (message.id === "cycle") filters.cycle = "any"
           await viewer.setFilters(filters)
@@ -237,11 +268,13 @@ export class NavigationView implements WebviewViewProvider, Disposable {
       const choice = await this.pick("Filter issues", [
         { label: "Cycle", value: "cycle" },
         { label: "Status", value: "status" },
+        { label: "Assignees", value: "assignee" },
         { label: "Clear filters", value: "clear" },
       ])
       if (choice?.value === "clear") {
         filters.cycle = "any"
         filters.stateIds = []
+        filters.assigneeIds = []
       } else if (choice) return this.choose(choice.value as NavigationSelector)
       else return
     } else if (selector === "team") {
@@ -273,6 +306,7 @@ export class NavigationView implements WebviewViewProvider, Disposable {
       ])
       if (!choice) return
       filters.view = choice.value
+      if (filters.view === "myIssues") filters.assigneeIds = []
     } else if (selector === "cycle") {
       const choice = await this.pick("Cycle", [
         { label: "Any cycle", value: "any" },
@@ -310,6 +344,37 @@ export class NavigationView implements WebviewViewProvider, Disposable {
       )
       if (!choices) return
       filters.stateIds = choices.map(({ value }) => value)
+    } else if (selector === "assignee") {
+      const choices = await window.showQuickPick(
+        [
+          {
+            label: "Unassigned",
+            description: "Issues without an assignee",
+            value: UNASSIGNED_ASSIGNEE_ID,
+            picked: filters.assigneeIds.includes(UNASSIGNED_ASSIGNEE_ID),
+          },
+          ...metadata.users
+            .map((user) => ({
+              label: user.name,
+              description: user.email,
+              value: user.id,
+              picked:
+                filters.view === "myIssues"
+                  ? user.id === viewer.connection?.userId
+                  : filters.assigneeIds.includes(user.id),
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
+        ],
+        {
+          title: "Issue assignees",
+          canPickMany: true,
+          placeHolder: "Select assignees; leave empty for all assignees (All issues)",
+          matchOnDescription: true,
+        },
+      )
+      if (!choices) return
+      filters.assigneeIds = choices.map(({ value }) => value)
+      filters.view = "allIssues"
     }
     if (activeId === getActiveWorkspaceId()) await viewer.setFilters(filters)
   }

@@ -37,17 +37,75 @@
 }
 
 .navigationFilters {
+  margin-top: 8px;
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  padding-top: 4px;
+}
+
+.navigationFiltersToggle.rs-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px;
+  font-size: var(--font-size-xsmall);
+  color: var(--lm-color-text-muted);
+}
+
+.navigationFilterCount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.navigationFilterGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 4px 4px 24px;
+}
+
+.navigationFilterCategory {
+  margin-bottom: 4px;
+  font-size: var(--font-size-xsmall);
+  color: var(--lm-color-text-muted);
+}
+
+.navigationFilterChips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.navigationFilters > button {
-  color: var(--vscode-badge-foreground);
-  background: var(--vscode-badge-background);
+.navigationFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   max-width: 100%;
+  padding-left: 6px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  border-radius: 4px;
+  background: var(--lm-hover-overlay);
+  font-size: var(--font-size-xsmall);
+}
+
+.navigationFilterLabel {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigationFilterIcon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  align-items: center;
+}
+
+.navigationFilterRemove.rs-btn {
+  flex-shrink: 0;
+  padding: 4px;
+  color: var(--lm-color-text-muted);
 }
 
 .navigationError {
@@ -67,14 +125,6 @@
 .linearNavigation .linear-reference-icon[data-kind="team"] {
   border: 1px solid currentColor;
   border-radius: 3px;
-}
-
-.navigationStatusDot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-right: 4px;
 }
 
 .linearNavigation button:focus-visible {

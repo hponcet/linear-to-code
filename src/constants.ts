@@ -1,4 +1,5 @@
 export const IS_PRODUCTION = process.env.NODE_ENV !== "development"
+export const UNASSIGNED_ASSIGNEE_ID = "__unassigned__"
 
 export enum Views {
   navigation = "linearToCode.views.navigation",

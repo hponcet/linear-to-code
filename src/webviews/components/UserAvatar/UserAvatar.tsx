@@ -1,6 +1,6 @@
 import { SerializedUser } from "src/types/SerializedLinear"
 type UserAvatarProps = {
-  user?: SerializedUser | null
+  user?: Pick<SerializedUser, "name" | "avatarUrl" | "avatarBackgroundColor" | "initials"> | null
   size?: number
   style?: React.CSSProperties
   className?: string

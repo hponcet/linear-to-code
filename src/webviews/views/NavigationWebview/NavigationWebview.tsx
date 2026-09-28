@@ -1,12 +1,115 @@
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
+import { Animation } from "rsuite"
 
 import { Button } from "../../components/Button/Button"
 import { LinearReferenceIcon } from "../../components/Editor/markdownPlugins/MentionPlugin/LinearReferenceIcon"
+import { CaretIcon } from "../../components/Icons/CaretIcon"
+import { CrossIcon } from "../../components/Icons/CrossIcon"
+import { ProjectCycleIcon } from "../../components/ProjectCyclePicker/ProjectCycleIcon"
+import { UserAvatar } from "../../components/UserAvatar/UserAvatar"
+import { WorkflowStateIcon } from "../../components/WorklfowStatePicker/WorkflowStateIcon"
 import { vscApi } from "../../hooks/useRequestDataUpdate"
 
 import type { NavigationSelector, NavigationSnapshot } from "src/types/Navigation"
 
 import "./NavigationWebview.css"
+
+function ActiveFilters({
+  filters,
+  busy,
+  remove,
+}: {
+  filters: NavigationSnapshot["filters"]
+  busy: boolean
+  remove: (id: string) => Promise<void>
+}) {
+  const [collapsed, setCollapsed] = useState(true)
+  const contentId = useId()
+  if (!filters.length) return null
+
+  return (
+    <section className="navigationFilters" aria-label="Active filters">
+      <Button
+        className="navigationFiltersToggle"
+        variant="subtle"
+        aria-label={`Active filters (${filters.length})`}
+        aria-expanded={!collapsed}
+        aria-controls={contentId}
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <CaretIcon
+          style={{
+            transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
+            transition: "transform 0.3s",
+          }}
+        />
+        <span>Active filters</span>
+        <span className="navigationFilterCount">{filters.length}</span>
+      </Button>
+      <Animation.Collapse in={!collapsed}>
+        {(props, ref) => (
+          <div {...props} ref={ref} id={contentId} inert={collapsed} aria-hidden={collapsed}>
+            <div className="navigationFilterGroups">
+              {(
+                [
+                  ["cycle", "Cycle"],
+                  ["status", "Statuses"],
+                  ["assignee", "Assignees"],
+                ] as const
+              ).map(([kind, label]) => {
+                const selected = filters.filter((filter) => filter.kind === kind)
+                if (!selected.length) return null
+                return (
+                  <div key={kind} role="group" aria-labelledby={`${contentId}-${kind}`}>
+                    <div className="navigationFilterCategory" id={`${contentId}-${kind}`}>
+                      {label}
+                    </div>
+                    <div className="navigationFilterChips">
+                      {selected.map((filter) => (
+                        <span
+                          key={filter.id}
+                          className="navigationFilterChip"
+                          title={
+                            filter.description
+                              ? `${filter.description}: ${filter.label}`
+                              : filter.label
+                          }
+                        >
+                          <span className="navigationFilterIcon" aria-hidden="true">
+                            {filter.kind === "cycle" && (
+                              <ProjectCycleIcon cycle={filter.cycle} size={14} />
+                            )}
+                            {filter.kind === "status" && (
+                              <WorkflowStateIcon workflowState={filter.workflowState} size={14} />
+                            )}
+                            {filter.kind === "assignee" && (
+                              <UserAvatar user={filter.user} size={14} />
+                            )}
+                          </span>
+                          <span className="navigationFilterLabel">{filter.label}</span>
+                          <Button
+                            className="navigationFilterRemove"
+                            size="xs"
+                            variant="subtle"
+                            icon={<CrossIcon size={10} />}
+                            disabled={busy}
+                            aria-label={`Remove ${filter.label}`}
+                            title={`Remove ${filter.label}`}
+                            onClick={() => remove(filter.id)}
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </Animation.Collapse>
+    </section>
+  )
+}
 
 export function NavigationWebview() {
   const [state, setState] = useState<NavigationSnapshot>()
@@ -106,35 +209,18 @@ export function NavigationWebview() {
               Filters{state.filters.length ? ` (${state.filters.length})` : ""}
             </Button>
           </div>
-          <div className="navigationFilters" aria-label="Active filters">
-            {state.filters.map((filter) => (
-              <Button
-                key={filter.id}
-                title={filter.description ? `${filter.description}: ${filter.label}` : filter.label}
-                size="xs"
-                variant="subtle"
-                disabled={state.busy}
-                aria-label={`Remove ${filter.label}`}
-                onClick={async () => {
-                  try {
-                    await vscApi.postMessage({ type: "clearNavigationFilter", id: filter.id })
-                  } catch (error) {
-                    setError(String(error))
-                  }
-                }}
-              >
-                {filter.color && (
-                  <span
-                    className="navigationStatusDot"
-                    style={{ backgroundColor: filter.color }}
-                    aria-hidden="true"
-                  />
-                )}
-                {filter.label}
-                <span aria-hidden="true"> ×</span>
-              </Button>
-            ))}
-          </div>
+          <ActiveFilters
+            key={state.workspace.id}
+            filters={state.filters}
+            busy={state.busy}
+            remove={async (id) => {
+              try {
+                await vscApi.postMessage({ type: "clearNavigationFilter", id })
+              } catch (error) {
+                setError(String(error))
+              }
+            }}
+          />
         </>
       )}
       {(error || state.error) && (

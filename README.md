@@ -7,7 +7,7 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 ### Issues and workflow
 
 - Connect multiple Linear workspaces through Linear Connect and switch from the navigation header
-- Browse **All issues** or **My issues**, scoped to a team, a project, cycles, and statuses
+- Browse **All issues** or **My issues**, scoped to a team, a project, cycles, statuses, and one or more assignees
 - Search all issues in the active Linear workspace from the **Issues** view header
 - Open issues in a rich React panel (TipTap editor, comments, sub-issues, attachments, history)
 - Drag and drop issues from the tree view to open them
@@ -58,10 +58,12 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 1. Open **Linear to Code** in the activity bar
 2. Run **Connect to Linear** if you are not authenticated
 3. Select a workspace, **All teams** or a team, and **All projects**, **No project**, or a project in the navigation header
-4. Choose **All issues** (the default) or **My issues**. Open **Filters** for a current, specific, or missing cycle and multiple statuses. Remove individual filter chips to broaden the list
+4. Choose **All issues** (the default) or **My issues**. Open **Filters** for a current, specific, or missing cycle, multiple statuses, or **Assignees**. Search assignees by name or email and select one or more people to show tickets assigned to any of them. Confirming the assignee picker switches to **All issues**; choosing **My issues** clears custom assignees. Leave the selection empty to include all assignees. Remove individual filter chips to broaden the list
 5. The native issue tree automatically loads every matching issue in batches of 100. Tickets appear as each page arrives; the tree indicates loading progress until the full list is available
 
 Each selector opens the editor's searchable, keyboard-accessible Quick Pick. Selecting a team limits the available projects; **All teams** includes cross-team projects. Cycle and status choices follow the selected team's or project's teams. Refresh reloads accessible data and removes filters that no longer apply. Initiatives, milestones, and workflow configuration are outside this navigation.
+
+Expand **Active filters** below the selectors to see filters grouped by Cycle, Statuses, and Assignees, with their issue-panel icons and avatars. This section starts collapsed; each chip has its own remove button. In the assignee picker, select **Unassigned** to show tickets without an assignee, either alone or alongside selected users.
 
 The active workspace and each workspace's filters are saved per editor project, independently of other windows. Open issue and Start Work panels keep their original workspace (shown in the panel), drafts, comments, references, and agent actions when you switch. Each connected workspace has its own named MCP server; agent prompts include that workspace and server identity.
 

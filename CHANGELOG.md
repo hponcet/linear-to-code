@@ -8,6 +8,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- Added an Unassigned option to the Workspace assignee filter, usable alone or alongside selected users.
+
+- Added a searchable, multi-select Assignees filter to Workspace navigation, with removable user chips and selections saved per workspace and editor project.
+
 - Added workspace, team, project, issue-view, cycle, and status navigation above the native issue tree, with searchable native pickers, per-editor-project filter restoration, and paginated issue loading.
 - Added multiple workspace connections through Linear Connect, workspace-bound issue and Start Work panels, and a separate MCP server per organization.
 
@@ -20,6 +24,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Added a hover card on every Linear reference — user, issue, project, document, cycle, milestone, view, and initiative — showing the resolved name plus its own details, such as status and priority for an issue or progress and lead for a project.
 
 ### Changed
+
+- Improved initials avatars in native issue and pull request lists with crisp SVG outlines from the bundled Inter font and larger, consistently white lettering.
+
+- Grouped active Workspace filters into Cycle, Statuses, and Assignees inside a section collapsed by default, using the same collapse animation, caret, cycle/status icons, and user avatars as issue panels.
 
 - The issue tree now automatically loads all matching tickets, showing pages as they arrive instead of stopping at 100 issues and requiring Load more.
 
@@ -40,6 +48,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Removed the underline mark and its toolbar button because Linear has no Markdown representation for underline, so every underlined span was lost or shown as literal source once saved.
 
 ### Fixed
+
+- Replaced the gray question-mark avatar for unassigned issues in native lists with Linear's Unassigned icon, matching issue panels.
 
 - Kept the existing issue tree visible during manual and automatic refreshes, with native view progress and a single update after all pages load. Failed refreshes preserve the previous list.
 

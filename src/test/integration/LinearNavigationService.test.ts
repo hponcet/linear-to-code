@@ -23,7 +23,11 @@ suite("Linear navigation API", () => {
           updateIssue: async () => ({ issue: Promise.resolve({ id: "first" }) }),
         }) as unknown as LinearClient,
     )
-    const filters = { ...defaultNavigationFilters(), projectId: "project" }
+    const filters = {
+      ...defaultNavigationFilters(),
+      projectId: "project",
+      assigneeIds: ["alice", "bob"],
+    }
     const first = await service.getNavigationIssues(filters)
     const second = await service.getNavigationIssues(filters, first.nextCursor ?? undefined)
     assert.strictEqual(first.nextCursor, "next")
@@ -33,7 +37,11 @@ suite("Linear navigation API", () => {
       ["second"],
     )
     assert.strictEqual(requests[0].first, 100)
-    assert.deepStrictEqual(requests[0].filter, { project: { id: { eq: "project" } } })
+    assert.deepStrictEqual(requests[0].filter, {
+      project: { id: { eq: "project" } },
+      assignee: { id: { in: ["alice", "bob"] } },
+    })
+    assert.deepStrictEqual(requests[1].filter, requests[0].filter)
     assert.strictEqual(requests[1].after, "next")
     for (const field of ["projectId", "cycleId", "teamId", "stateId", "assigneeId"]) {
       const before = requests.length
@@ -66,10 +74,51 @@ suite("Linear navigation API", () => {
             ])
           },
           cycles: async () => connection([]),
+          users: async () =>
+            connection(
+              [
+                {
+                  id: "alice",
+                  name: "Alice",
+                  displayName: "Ali",
+                  email: "alice@example.com",
+                  avatarUrl: "https://example.com/alice.png",
+                  avatarBackgroundColor: "#123456",
+                  initials: "AL",
+                },
+              ],
+              [{ id: "bob", name: "Bob", displayName: "", email: "bob@example.com" }],
+            ),
           workflowStates: async () =>
             connection(
-              [{ id: "desktop-todo", name: "Todo", teamId: "team-a" }],
-              [{ id: "mobile-todo", name: "Todo", teamId: "team-b" }],
+              [
+                {
+                  id: "desktop-progress",
+                  name: "In progress",
+                  teamId: "team-a",
+                  type: "started",
+                  position: 0,
+                  color: "#ddaa00",
+                },
+                {
+                  id: "desktop-review",
+                  name: "Review",
+                  teamId: "team-a",
+                  type: "started",
+                  position: 1,
+                  color: "#ddaa00",
+                },
+              ],
+              [
+                {
+                  id: "mobile-progress",
+                  name: "In progress",
+                  teamId: "team-b",
+                  type: "started",
+                  position: 0,
+                  color: "#ddaa00",
+                },
+              ],
             ),
         }) as unknown as LinearClient,
     )
@@ -81,14 +130,37 @@ suite("Linear navigation API", () => {
     assert.deepStrictEqual(metadata.projects[0].teamIds, ["team-a", "team-b"])
     assert.deepStrictEqual(metadata.cycles, [])
     assert.deepStrictEqual(
+      metadata.users.map(({ id, name, email }) => ({ id, name, email })),
+      [
+        { id: "alice", name: "Ali", email: "alice@example.com" },
+        { id: "bob", name: "Bob", email: "bob@example.com" },
+      ],
+    )
+    assert.strictEqual(metadata.users[0].avatarUrl, "https://example.com/alice.png")
+    assert.strictEqual(metadata.users[0].avatarBackgroundColor, "#123456")
+    assert.strictEqual(metadata.users[0].initials, "AL")
+    assert.deepStrictEqual(
       metadata.states.map(({ id, name, teamId }) => ({
         id,
         name,
         team: metadata.teams.find((team) => team.id === teamId)?.name,
       })),
       [
-        { id: "desktop-todo", name: "Todo", team: "Desktop" },
-        { id: "mobile-todo", name: "Todo", team: "Mobile" },
+        { id: "desktop-progress", name: "In progress", team: "Desktop" },
+        { id: "desktop-review", name: "Review", team: "Desktop" },
+        { id: "mobile-progress", name: "In progress", team: "Mobile" },
+      ],
+    )
+    assert.deepStrictEqual(
+      metadata.states.map(({ type, stateProgress, stateTypeLength }) => [
+        type,
+        stateProgress,
+        stateTypeLength,
+      ]),
+      [
+        ["started", 0, 2],
+        ["started", 1, 2],
+        ["started", 0, 1],
       ],
     )
     await service.getNavigationMetadata()

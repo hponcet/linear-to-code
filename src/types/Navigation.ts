@@ -1,4 +1,16 @@
+import type { SerializedCycle, SerializedWorkflowState } from "./SerializedLinear"
 import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+import type { NavigationMetadata } from "src/linear/navigation"
+
+export type NavigationFilter = {
+  id: string
+  label: string
+  description?: string
+} & (
+  | { kind: "cycle"; cycle: Pick<SerializedCycle, "isActive" | "isNext"> | null }
+  | { kind: "status"; workflowState: SerializedWorkflowState }
+  | { kind: "assignee"; user: NavigationMetadata["users"][number] | null }
+)
 
 export type NavigationSelector =
   | "workspace"
@@ -9,6 +21,7 @@ export type NavigationSelector =
   | "filters"
   | "cycle"
   | "status"
+  | "assignee"
   | "connect"
   | "reconnect"
 
@@ -21,7 +34,7 @@ export type NavigationSnapshot = {
   projectColor?: string
   projectIcon?: string
   view: string
-  filters: { id: string; label: string; color?: string; description?: string }[]
+  filters: NavigationFilter[]
   busy: boolean
   error?: string
 }

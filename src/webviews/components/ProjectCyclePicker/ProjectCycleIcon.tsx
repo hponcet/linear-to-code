@@ -3,7 +3,7 @@ import { SerializedCycle } from "src/types/SerializedLinear"
 type CycleIconProps = {
   style?: React.CSSProperties
   className?: string
-  cycle?: SerializedCycle | null
+  cycle?: Pick<SerializedCycle, "isActive" | "isNext"> | null
   size?: number
 }
 

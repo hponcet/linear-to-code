@@ -27,6 +27,7 @@ import {
   fetchWorkspaceUsers,
   TeamMetadata,
 } from "src/linear/teamMetadata"
+import { filterWorkflowStatesByType } from "src/panels/commons/worflowStates"
 import { SerializedIssueHistory, SerializedWorkflowState } from "src/types/SerializedLinear"
 import {
   Issue as TreeIssue,
@@ -38,6 +39,7 @@ import { getCanonicalPrivateLinearAssetUrl } from "src/webviews/components/Edito
 
 import { buildNavigationIssueFilter, NavigationFilters, NavigationMetadata } from "./navigation"
 import { fetchAllPreviousPages } from "./pagination"
+import { serializeWorkflowState } from "./serializeForIpc"
 
 export type IssueUpdateFields = Parameters<LinearClient["updateIssue"]>[1]
 export type CreateReactionInput = Parameters<LinearClient["createReaction"]>[0]
@@ -260,11 +262,12 @@ export class LinearService {
   async getNavigationMetadata(): Promise<NavigationMetadata> {
     return this.#cache.getOrFetch("navigationMetadata", async () => {
       const client = this.#requireClient()
-      const [teams, projects, cycles, states] = await Promise.all([
+      const [teams, projects, cycles, states, users] = await Promise.all([
         this.getTeams(),
         client.projects().then(fetchAllPreviousPages),
         client.cycles().then(fetchAllPreviousPages),
         client.workflowStates().then(fetchAllPreviousPages),
+        this.getWorkspaceUsers(),
       ])
       return {
         teams: Object.values(teams).map(({ id, name, color, icon }) => ({
@@ -286,13 +289,24 @@ export class LinearService {
           id: cycle.id,
           name: cycle.name || `Cycle ${cycle.number}`,
           teamId: cycle.teamId!,
+          isActive: cycle.isActive,
+          isNext: cycle.isNext,
         })),
-        states: states.map((state) => ({
-          id: state.id,
-          name: state.name,
-          teamId: state.teamId!,
-          color: state.color,
-        })),
+        states: Object.keys(teams).flatMap((teamId) =>
+          filterWorkflowStatesByType(states.filter((state) => state.teamId === teamId)).map(
+            (state) => ({ ...serializeWorkflowState(state), teamId }),
+          ),
+        ),
+        users: users.map(
+          ({ id, name, displayName, email, avatarUrl, avatarBackgroundColor, initials }) => ({
+            id,
+            name: displayName || name,
+            email,
+            avatarUrl: avatarUrl ?? undefined,
+            avatarBackgroundColor: avatarBackgroundColor ?? undefined,
+            initials,
+          }),
+        ),
       }
     })
   }
