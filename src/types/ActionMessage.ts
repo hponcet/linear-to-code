@@ -34,14 +34,17 @@ import {
   PullRequestStatus,
 } from "../gitProviders/types"
 
+import type { NavigationSelector, NavigationSnapshot } from "./Navigation"
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+
 export type Props = {
   issue: {
     issueId: SerializedIssue["id"] | null
-    linearAccessToken: string | undefined
+    connection: LinearWorkspace | undefined
   }
   startWork: {
     issueId: SerializedIssue["id"] | null
-    linearAccessToken: string | undefined
+    connection: LinearWorkspace | undefined
     fromCheckout: boolean
     repoInitialized: boolean
     gitInitialized: boolean
@@ -49,7 +52,7 @@ export type Props = {
   }
   settings: {
     issueId: SerializedIssue["id"] | null
-    linearAccessToken: string | undefined
+    connection: LinearWorkspace | undefined
     initialTab?: "git" | "workflow" | "agent"
     tabRequestId?: number
   }
@@ -90,6 +93,9 @@ export type Listener<Type extends string, Payload> = {
 
 export type Message<K extends keyof Props = any> =
   | Action<"props", void, Props[K]>
+  | Action<"getNavigation", void, NavigationSnapshot>
+  | Action<"selectNavigation", { selector: NavigationSelector }>
+  | Action<"clearNavigationFilter", { id: string }>
   | Action<"closePanel">
   | Action<"openExternal", { issueIdentifier?: SerializedIssue["identifier"] }>
   | Action<"openExternalUrl", { url: string }>
@@ -181,7 +187,7 @@ export type GlobalListenerMessage =
       "settingsPropsUpdate",
       {
         issueId: SerializedIssue["id"] | null
-        linearAccessToken: string | undefined
+        connection: LinearWorkspace | undefined
         initialTab?: "git" | "workflow" | "agent"
         tabRequestId?: number
       }

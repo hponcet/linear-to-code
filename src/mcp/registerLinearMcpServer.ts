@@ -1,4 +1,5 @@
 import { isExtensionActive } from "src/extensionSession"
+import { getConnectedWorkspaces } from "src/linear/auth"
 import { ExtensionContext, EventEmitter, lm, window, workspace } from "vscode"
 
 import {
@@ -10,6 +11,7 @@ import {
   buildLinearMcpServerEnv,
   createLinearMcpServerDefinition,
   MCP_PROVIDER_ID,
+  workspaceMcpName,
 } from "./mcpEnvBuilder"
 
 const didChangeMcpServerDefinitions = new EventEmitter<void>()
@@ -60,22 +62,22 @@ export function registerLinearMcpServer(context: ExtensionContext): void {
         lm.registerMcpServerDefinitionProvider(MCP_PROVIDER_ID, {
           onDidChangeMcpServerDefinitions: didChangeMcpServerDefinitions.event,
           provideMcpServerDefinitions: async () => {
-            const env = await buildLinearMcpServerEnv(context)
-            if (!env) {
-              return []
-            }
-
-            return [createLinearMcpServerDefinition(context, env)]
+            const definitions = await Promise.all(
+              getConnectedWorkspaces().map(async (connection) => {
+                const env = await buildLinearMcpServerEnv(context, connection.id)
+                return env ? createLinearMcpServerDefinition(context, env, connection) : undefined
+              }),
+            )
+            return definitions.filter((definition) => definition !== undefined)
           },
-          resolveMcpServerDefinition: async () => {
-            const env = await buildLinearMcpServerEnv(context)
-            if (!env) {
-              throw new Error(
-                "Connect your Linear account in Linear to Code before starting the MCP server.",
-              )
-            }
-
-            return createLinearMcpServerDefinition(context, env)
+          resolveMcpServerDefinition: async (definition) => {
+            const connection = getConnectedWorkspaces().find(
+              (item) => workspaceMcpName(item) === definition.label,
+            )
+            const env = connection && (await buildLinearMcpServerEnv(context, connection.id))
+            if (!connection || !env)
+              throw new Error("Reconnect this Linear workspace before starting its MCP server.")
+            return createLinearMcpServerDefinition(context, env, connection)
           },
         }),
       )

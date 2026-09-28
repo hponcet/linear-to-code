@@ -2,11 +2,12 @@ import { Issue } from "@linear/sdk"
 import { Webviews } from "src/constants"
 import { Controller } from "src/controller"
 import { isCursorEnvironmentReady } from "src/cursor/detectCursorEnvironment"
-import { LinearSecretKeys } from "src/linear/auth"
 import { MyIssuesView } from "src/views/myIssues"
 import { ExtensionContext, ViewColumn } from "vscode"
 
 import { AbstractIssueWebview } from "./AbstractIssueWebview"
+
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
 
 export class StartWorkWebview extends AbstractIssueWebview<"startWork"> {
   #fromCheckout: boolean = false
@@ -14,9 +15,10 @@ export class StartWorkWebview extends AbstractIssueWebview<"startWork"> {
   constructor(
     context: ExtensionContext,
     issueActions: MyIssuesView["issuesActions"],
+    connection: LinearWorkspace,
     fromCheckout?: true,
   ) {
-    super(context, issueActions)
+    super(context, issueActions, connection)
     this.#fromCheckout = fromCheckout ?? false
   }
 
@@ -32,7 +34,7 @@ export class StartWorkWebview extends AbstractIssueWebview<"startWork"> {
   public async getProps() {
     const props = {
       issueId: this.issue?.id || null,
-      linearAccessToken: await this._context.secrets.get(LinearSecretKeys.accessToken),
+      connection: this.connection,
       fromCheckout: this.#fromCheckout,
       repoInitialized: Controller.git.repositoryActive,
       gitInitialized: Controller.git.apiActive,

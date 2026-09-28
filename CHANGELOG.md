@@ -8,6 +8,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- Added workspace, team, project, issue-view, cycle, and status navigation above the native issue tree, with searchable native pickers, per-editor-project filter restoration, and paginated issue loading.
+- Added multiple workspace connections through Linear Connect, workspace-bound issue and Start Work panels, and a separate MCP server per organization.
+
 - Added global Linear issue search from the My Issues and Current Cycle view header, with a keyboard shortcut.
 - Added a shared, lossless Linear Markdown engine for issue descriptions, comments, replies, and sub-issues, including tables, checklists, details, images, Linear entity tags, file embeds, audio, video, code highlighting, and Mermaid diagrams.
 - Added editable issue descriptions with validated autosave, persisted offline drafts, and upload support for Linear-hosted images and files.
@@ -17,6 +20,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Added a hover card on every Linear reference — user, issue, project, document, cycle, milestone, view, and initiative — showing the resolved name plus its own details, such as status and priority for an issue or progress and lead for a project.
 
 ### Changed
+
+- The issue tree now automatically loads all matching tickets, showing pages as they arrive instead of stopping at 100 issues and requiring Load more.
+
+- Replaced the My Issues / Current Cycle toggle with All issues / My issues and independent cycle filters. Existing toggle shortcuts now open the issue-view picker.
+- Migrated saved Linear credentials into organization-specific SecretStorage entries and removed access tokens from webview props.
 
 - Editable label pickers now show "Add a label...", including beside selected labels.
 - A Mermaid diagram now shows either its picture or its source, with an Edit diagram / View diagram switch in the top-right corner of the block, instead of stacking both. A diagram that fails to render keeps its source open, and a newly created one starts on its source.
@@ -32,6 +40,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Removed the underline mark and its toolbar button because Linear has no Markdown representation for underline, so every underlined span was lost or shown as literal source once saved.
 
 ### Fixed
+
+- Prevented stale issue pages and invalidated in-flight cache entries from replacing newer navigation results. Ticket changes now recheck membership in the current API-filtered list.
 
 - Fixed assigned labels and label choices disappearing from issue details and Start Work when an issue belongs to a project.
 - Fixed menu, hover card, and tooltip shadows glowing white on dark themes because they were tinted with the foreground colour instead of black.

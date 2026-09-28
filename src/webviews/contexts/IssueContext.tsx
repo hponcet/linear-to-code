@@ -25,6 +25,8 @@ import {
   issueEstimationByType,
 } from "../utils/issueEstimateByType"
 
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+
 function normalizeAttachmentUrl(url: string): string {
   const trimmed = url.trim()
   if (!trimmed) {
@@ -49,7 +51,7 @@ function getAttachmentTitle(url: string, title?: string): string {
 
 type IssueContextProviderProps = {
   issueId: string
-  linearAccessToken: string
+  connection: LinearWorkspace
   isLoading?: boolean
   children: ReactNode
 }
@@ -58,7 +60,7 @@ export type IssueContextValueData = {
   me: SerializedUser | null
   meLoading: boolean
   issue: SerializedIssue
-  linearAccessToken: string
+  connection: LinearWorkspace
   update: {
     issue: (
       issueId: string,
@@ -119,7 +121,7 @@ const IssueContextReact = createContext<IssueContextValueData>({
   me: null,
   meLoading: false,
   issue: {} as SerializedIssue,
-  linearAccessToken: "",
+  connection: { id: "", name: "", urlKey: "", userId: "", userName: "" },
   update: {
     issue: async () => Promise.reject(),
     comments: {
@@ -214,7 +216,7 @@ const IssueContextReact = createContext<IssueContextValueData>({
 })
 
 export function IssueContextProvider(props: IssueContextProviderProps) {
-  const { children, issueId, linearAccessToken, isLoading: externalLoading } = props
+  const { children, issueId, connection, isLoading: externalLoading } = props
 
   const [issue, setIssue] = useState<SerializedIssue | null>(null)
   const [commentRefetch, setCommentRefetch] = useState(0)
@@ -541,7 +543,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
       me,
       meLoading,
       issue: issue!,
-      linearAccessToken,
+      connection,
       priorities: priorities || [],
       prioritiesLoading,
       issueLabels: issueLabels || [],
@@ -595,7 +597,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
       me,
       meLoading,
       issue,
-      linearAccessToken,
+      connection,
       priorities,
       prioritiesLoading,
       issueLabels,

@@ -1,0 +1,83 @@
+/* stylelint-disable custom-property-pattern, selector-class-pattern */
+.linearNavigation {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 6px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+.navigationRow {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.navigationRow > button {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  justify-content: space-between;
+  border: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.navigationRow > button[aria-label="Workspace menu"] {
+  flex: 0 0 28px;
+  justify-content: center;
+}
+
+.navigationValue {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.navigationFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.navigationFilters > button {
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navigationError {
+  color: var(--lm-color-text-muted);
+  margin-top: 6px;
+}
+
+.linearNavigation .linear-reference-icon {
+  display: inline-flex;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  align-items: center;
+  justify-content: center;
+}
+
+.linearNavigation .linear-reference-icon[data-kind="team"] {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
+
+.navigationStatusDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.linearNavigation button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}

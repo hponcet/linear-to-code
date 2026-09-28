@@ -20,9 +20,11 @@ import {
   issueEstimationByType,
 } from "../utils/issueEstimateByType"
 
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+
 type StartWorkContextProviderProps = {
   issueId: string
-  linearAccessToken: string
+  connection: LinearWorkspace
   isLoading?: boolean
   children: ReactNode
 }
@@ -39,7 +41,7 @@ const emptyHistoryFields = {
 }
 
 export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
-  const { children, issueId, linearAccessToken, isLoading: externalLoading } = props
+  const { children, issueId, connection, isLoading: externalLoading } = props
 
   const [issue, setIssue] = useState<SerializedIssue | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -133,7 +135,7 @@ export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
       me: null,
       meLoading: false,
       issue: issue!,
-      linearAccessToken,
+      connection,
       priorities: priorities || [],
       prioritiesLoading,
       issueLabels,
@@ -178,7 +180,7 @@ export function StartWorkContextProvider(props: StartWorkContextProviderProps) {
     }),
     [
       issue,
-      linearAccessToken,
+      connection,
       priorities,
       prioritiesLoading,
       issueLabels,

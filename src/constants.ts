@@ -1,6 +1,7 @@
 export const IS_PRODUCTION = process.env.NODE_ENV !== "development"
 
 export enum Views {
+  navigation = "linearToCode.views.navigation",
   myIssues = "linearToCode.views.myIssues",
   pullRequests = "linearToCode.views.pullRequests",
 }
@@ -22,6 +23,7 @@ export enum Commands {
   reviewPullRequestWithAgent = "linearToCode.commands.reviewPullRequestWithAgent",
   configureBranch = "linearToCode.commands.configureBranch",
   checkoutIssue = "linearToCode.commands.checkoutIssue",
+  reconnectWorkspace = "linearToCode.commands.reconnectWorkspace",
   refresh = "linearToCode.commands.refresh",
   toggleViewMode = "linearToCode.commands.toggleViewMode",
   searchIssues = "linearToCode.commands.searchIssues",

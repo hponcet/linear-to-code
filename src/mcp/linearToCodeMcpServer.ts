@@ -20,10 +20,19 @@ const SERVER_NAME = "linear-to-code"
 const SERVER_VERSION = "1.0.0"
 
 async function main() {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  })
+  const workspaceId = process.env.LINEAR_WORKSPACE_ID
+  const workspaceName = process.env.LINEAR_WORKSPACE_NAME
+  const server = new McpServer(
+    {
+      name: workspaceId ? `${SERVER_NAME}-${workspaceId}` : SERVER_NAME,
+      version: SERVER_VERSION,
+    },
+    {
+      instructions: workspaceId
+        ? `Linear workspace: ${workspaceName} (${workspaceId}). All Linear tools use this organization.`
+        : undefined,
+    },
+  )
 
   server.registerTool(
     "get_issue",

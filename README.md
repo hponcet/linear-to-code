@@ -6,8 +6,9 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 
 ### Issues and workflow
 
-- Connect your Linear account and browse **My Issues** or **Current Cycle** in the activity bar
-- Search all Linear workspace issues from the **My Issues** or **Current Cycle** view header
+- Connect multiple Linear workspaces through Linear Connect and switch from the navigation header
+- Browse **All issues** or **My issues**, scoped to a team, a project, cycles, and statuses
+- Search all issues in the active Linear workspace from the **Issues** view header
 - Open issues in a rich React panel (TipTap editor, comments, sub-issues, attachments, history)
 - Drag and drop issues from the tree view to open them
 - Move issues between workflow states via drag and drop (multi-select supported)
@@ -56,7 +57,21 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 
 1. Open **Linear to Code** in the activity bar
 2. Run **Connect to Linear** if you are not authenticated
-3. Use **My issues** to see assigned work, or toggle **Current Cycle** from the view title bar
+3. Select a workspace, **All teams** or a team, and **All projects**, **No project**, or a project in the navigation header
+4. Choose **All issues** (the default) or **My issues**. Open **Filters** for a current, specific, or missing cycle and multiple statuses. Remove individual filter chips to broaden the list
+5. The native issue tree automatically loads every matching issue in batches of 100. Tickets appear as each page arrives; the tree indicates loading progress until the full list is available
+
+Each selector opens the editor's searchable, keyboard-accessible Quick Pick. Selecting a team limits the available projects; **All teams** includes cross-team projects. Cycle and status choices follow the selected team's or project's teams. Refresh reloads accessible data and removes filters that no longer apply. Initiatives, milestones, and workflow configuration are outside this navigation.
+
+The active workspace and each workspace's filters are saved per editor project, independently of other windows. Open issue and Start Work panels keep their original workspace (shown in the panel), drafts, comments, references, and agent actions when you switch. Each connected workspace has its own named MCP server; agent prompts include that workspace and server identity.
+
+### Add, reconnect, or disconnect a workspace
+
+Use the workspace menu for **Connect workspace...**, **Reconnect**, or **Disconnect workspace**. Existing connections remain available while adding another; switching between saved workspaces does not sign out. Disconnect removes only that workspace's saved credential. Its open panels and drafts remain available and can resume after reconnection.
+
+Authentication continues to use `linear.linear-connect` and `authentication.getSession("linear", ["read", "write"])`. Tokens stay in the editor's SecretStorage; webviews receive connection metadata only. The previous single connection migrates automatically after its organization and user have been verified.
+
+**Linear Connect 1.0.3 limitation:** its provider exposes only one shared session and reuses it when signing in. Adding or reconnecting calls its public `linear-connect.logout` command before requesting a session again. The plugin explains this reset, which also affects other extensions sharing Linear Connect, and keeps its existing saved workspace credentials. Choose the intended workspace during authorization; reconnecting rejects a different organization. Cancelling or failing authorization leaves the active navigation unchanged. This provider exposes no usable automatic token refresh: reconnect when a credential expires. See the [Linear Connect authentication provider](https://github.com/linear/linear-vscode-connect-extension/blob/main/src/LinearAuthenticationProvider.ts).
 
 ### Work on an issue
 
@@ -94,7 +109,7 @@ When a git provider is connected for the current repository:
 | Switch to branch                 | Switch to the issue branch                             |
 | Create pull request              | Open provider compare/create flow                      |
 | Review with agent                | Review PR with MCP context (Cursor)                    |
-| Refresh / Toggle View            | Reload data or switch My Issues ↔ Current Cycle        |
+| Refresh / Select Issue View      | Reload data or choose All issues / My issues           |
 | Open settings                    | Workflow, Git, and agent prompt settings               |
 
 ## Project structure
@@ -110,7 +125,8 @@ src/
 ├── cursor/                   # Agent prompts, Cursor detection, MCP registration
 ├── panels/                   # Webview panels (issue, start work, settings)
 ├── views/
-│   ├── myIssues/             # My Issues tree view
+│   ├── NavigationView.ts     # Workspace, team, project, and filter selectors
+│   ├── myIssues/             # Native issue tree and workspace-bound panels
 │   └── pullRequests/         # Pull requests tree view
 ├── webviews/                 # React UI (issue panel, settings, start work)
 └── test/                     # Unit and integration tests

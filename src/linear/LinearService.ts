@@ -17,7 +17,6 @@ import { LinearCacheStore } from "src/linear/LinearCacheStore"
 import {
   fetchAssignedIssues,
   fetchCurrentCycleIssues,
-  fetchTeamsFromMe,
   fetchViewer,
   fetchWorkflowStatesByTeam,
 } from "src/linear/linearFetchers"
@@ -37,6 +36,7 @@ import {
 } from "src/views/myIssues/types"
 import { getCanonicalPrivateLinearAssetUrl } from "src/webviews/components/Editor/markdownPlugins/privateLinearImageUrl"
 
+import { buildNavigationIssueFilter, NavigationFilters, NavigationMetadata } from "./navigation"
 import { fetchAllPreviousPages } from "./pagination"
 
 export type IssueUpdateFields = Parameters<LinearClient["updateIssue"]>[1]
@@ -236,6 +236,7 @@ export class LinearService {
   invalidateIssueLists(): void {
     this.#cache.delete("assignedIssues")
     this.#cache.deleteByPrefix("cycleIssues:")
+    this.#cache.deleteByPrefix("navigationIssues:")
   }
 
   invalidateAll(): void {
@@ -251,8 +252,66 @@ export class LinearService {
 
   async getTeams(): Promise<Record<string, TreeTeam>> {
     return this.#cache.getOrFetch("teams", async () => {
-      const me = await this.getViewer()
-      return fetchTeamsFromMe(me)
+      const teams = await fetchAllPreviousPages(await this.#requireClient().teams())
+      return Object.fromEntries(teams.map((team) => [team.id, addKeyOnItem(team, "team")]))
+    })
+  }
+
+  async getNavigationMetadata(): Promise<NavigationMetadata> {
+    return this.#cache.getOrFetch("navigationMetadata", async () => {
+      const client = this.#requireClient()
+      const [teams, projects, cycles, states] = await Promise.all([
+        this.getTeams(),
+        client.projects().then(fetchAllPreviousPages),
+        client.cycles().then(fetchAllPreviousPages),
+        client.workflowStates().then(fetchAllPreviousPages),
+      ])
+      return {
+        teams: Object.values(teams).map(({ id, name, color, icon }) => ({
+          id,
+          name,
+          color: color ?? undefined,
+          icon: icon ?? undefined,
+        })),
+        projects: await Promise.all(
+          projects.map(async (project) => ({
+            id: project.id,
+            name: project.name,
+            color: project.color,
+            icon: project.icon ?? undefined,
+            teamIds: (await fetchAllPreviousPages(await project.teams())).map(({ id }) => id),
+          })),
+        ),
+        cycles: cycles.map((cycle) => ({
+          id: cycle.id,
+          name: cycle.name || `Cycle ${cycle.number}`,
+          teamId: cycle.teamId!,
+        })),
+        states: states.map((state) => ({
+          id: state.id,
+          name: state.name,
+          teamId: state.teamId!,
+          color: state.color,
+        })),
+      }
+    })
+  }
+
+  async getNavigationIssues(filters: NavigationFilters, after?: string) {
+    const key = `navigationIssues:${JSON.stringify([filters, after])}`
+    return this.#cache.getOrFetch(key, async () => {
+      const user = await this.getViewer()
+      const result = await this.#requireClient().issues({
+        first: 100,
+        after,
+        includeArchived: false,
+        orderBy: PaginationOrderBy.UpdatedAt,
+        filter: buildNavigationIssueFilter(filters, user.id),
+      })
+      return {
+        issues: result.nodes.map((issue) => this.toTreeIssue(issue)),
+        nextCursor: result.pageInfo.hasNextPage ? result.pageInfo.endCursor : undefined,
+      }
     })
   }
 
@@ -768,7 +827,13 @@ export class LinearService {
     }
 
     this.invalidateIssue(issueId)
-    if (fields.stateId || fields.assigneeId !== undefined) {
+    if (
+      fields.stateId ||
+      fields.assigneeId !== undefined ||
+      fields.projectId !== undefined ||
+      fields.cycleId !== undefined ||
+      fields.teamId !== undefined
+    ) {
       this.invalidateIssueLists()
     }
 

@@ -1,6 +1,5 @@
 import { Controller } from "src/controller"
 import { Props, Ipc, IpcResponse, GlobalListenerMessage } from "src/types/ActionMessage"
-import { makeid } from "src/utils/makeid"
 import { parseAllowedExternalUrl } from "src/utils/parseAllowedExternalUrl"
 import {
   IssueDescriptionDraftsVscState,
@@ -13,7 +12,6 @@ import {
   Event,
   EventEmitter,
   ExtensionContext,
-  ExtensionMode,
   Memento,
   Uri,
   ViewColumn,
@@ -22,6 +20,10 @@ import {
   window,
 } from "vscode"
 
+import { getWebviewAssetDirectory, getWebviewContent } from "./webviewContent"
+
+export { getWebviewAssetDirectory, getWebviewScriptPolicy } from "./webviewContent"
+
 export type ContextMenuCommandData = {
   action: string
   data: Record<string, string | boolean>
@@ -29,20 +31,6 @@ export type ContextMenuCommandData = {
 
 const stateWriteQueues = new Map<string, Promise<void>>()
 const stateWriteTimestamps = new Map<string, number>()
-
-export function getWebviewScriptPolicy(
-  cspSource: string,
-  nonce: string,
-  extensionMode: ExtensionMode,
-): string {
-  return extensionMode === ExtensionMode.Production
-    ? `${cspSource} 'nonce-${nonce}'`
-    : `${cspSource} 'unsafe-eval'`
-}
-
-export function getWebviewAssetDirectory(extensionMode: ExtensionMode): string {
-  return extensionMode === ExtensionMode.Production ? "dist" : "dist-webviews-dev"
-}
 
 export interface ReactWebview<K extends keyof Props> extends Disposable {
   hide(): void
@@ -103,7 +91,7 @@ export abstract class AbstractWebview<K extends keyof Props> implements ReactWeb
 
     this._propsSent = false
 
-    this.getWebviewContent(this._panel)
+    this._panel.webview.html = getWebviewContent(this._context, this._panel.webview, this.viewId)
 
     this._setTitle()
 
@@ -123,84 +111,6 @@ export abstract class AbstractWebview<K extends keyof Props> implements ReactWeb
       return
     }
     this._panel.title = this.title.length > 30 ? this.title.substring(0, 30) + "..." : this.title
-  }
-
-  private getWebviewContent(panel: WebviewPanel) {
-    const assetDirectory = getWebviewAssetDirectory(this._context.extensionMode)
-    const scriptSrc = panel.webview.asWebviewUri(
-      Uri.joinPath(this._context.extensionUri, assetDirectory, `${this.viewId}.js`),
-    )
-
-    const styleSrc = panel.webview.asWebviewUri(
-      Uri.joinPath(this._context.extensionUri, assetDirectory, `${this.viewId}.css`),
-    )
-
-    const font = panel.webview.asWebviewUri(
-      Uri.joinPath(this._context.extensionUri, "resources", "Inter-VariableFont.ttf"),
-    )
-
-    const fontItalic = panel.webview.asWebviewUri(
-      Uri.joinPath(this._context.extensionUri, "resources", "Inter-Italic-VariableFont.ttf"),
-    )
-
-    const nonce = makeid(16)
-    const styleLink =
-      this._context.extensionMode === ExtensionMode.Production
-        ? `<link rel="stylesheet" type="text/css" href="${styleSrc}" nonce="${nonce}" />`
-        : ""
-
-    panel.webview.html = `<!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta
-          http-equiv="Content-Security-Policy"
-          content="default-src 'self' ${
-            panel.webview.cspSource
-          } https://*.linear.app; img-src 'self' https: blob: data:; media-src 'self' ${
-            panel.webview.cspSource
-          } https://linear.app https://*.linear.app https://storage.googleapis.com https://www.youtube.com https://www.loom.com blob: data:; frame-src ${
-            panel.webview.cspSource
-          } https://www.youtube.com https://www.youtube-nocookie.com https://www.loom.com; script-src ${getWebviewScriptPolicy(
-            panel.webview.cspSource,
-            nonce,
-            this._context.extensionMode,
-          )} https://www.youtube.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src ${
-            panel.webview.cspSource
-          } data: https:; style-src-elem 'self' 'unsafe-inline' ${
-            panel.webview.cspSource
-          }; connect-src ${
-            panel.webview.cspSource
-          } https://linear.app https://*.linear.app ws://*.linear.app https://storage.googleapis.com https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/data.json https://cdn.jsdelivr.net/npm/emojibase-data@latest/en/messages.json"
-        />
-       
-        <meta id="webview" name="webview" content="${this.viewId}" />
-        ${styleLink}
-        <style nonce="${nonce}">
-          @font-face {
-            font-family: "Inter Variable";
-            src: url("${font}") format("truetype-variations");
-            font-weight: 100 900;
-            font-style: normal;
-            font-display: swap;
-          }
-
-          @font-face {
-            font-family: "Inter Variable";
-            src: url("${fontItalic}") format("truetype-variations");
-            font-weight: 100 900;
-            font-style: italic;
-            font-display: swap;
-          }
-        </style>
-        <base href="${Uri.joinPath(this._context.extensionUri, "resources").toString()}/" />
-      </head>
-      <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
-        <div id="root"></div>
-        <script src="${scriptSrc}" nonce="${nonce}"></script>
-      </body>
-    </html>
-    `
   }
 
   onDidPanelDispose(): Event<void> {

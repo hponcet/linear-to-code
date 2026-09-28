@@ -12,6 +12,7 @@ import { refreshCursorCommandContext } from "./cursor/detectCursorEnvironment"
 import { linearToCodeUriHandler } from "./gitProviders/linearToCodeUriHandler"
 import { initLinearClient } from "./linear/auth"
 import { registerLinearMcpServer } from "./mcp/registerLinearMcpServer"
+import { NavigationView } from "./views/NavigationView"
 
 export async function activate(context: ExtensionContext) {
   const sessionId = activateExtensionSession()
@@ -32,6 +33,7 @@ export async function activate(context: ExtensionContext) {
 
     context.subscriptions.push(window.registerUriHandler(linearToCodeUriHandler))
 
+    context.subscriptions.push(new NavigationView(context))
     registerCommands(context)
     registerLinearMcpServer(context)
     await initLinearClient(context, sessionId)

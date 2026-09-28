@@ -115,7 +115,7 @@ const vscApi = {
       }
 
       const timeout =
-        msg.type === "uploadLinearFile"
+        msg.type === "uploadLinearFile" || msg.type === "selectNavigation"
           ? undefined
           : window.setTimeout(() => {
               if (settled) {

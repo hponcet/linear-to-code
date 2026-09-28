@@ -256,7 +256,16 @@ export async function openIssueWebview(
       function responseFor(message: IpcRequest): unknown {
         switch (message.type) {
           case "props":
-            return { issueId: issue.id, linearAccessToken: "e2e-token" }
+            return {
+              issueId: issue.id,
+              connection: {
+                id: "workspace-e2e",
+                name: "E2E Workspace",
+                urlKey: "e2e",
+                userId: "user-e2e",
+                userName: "E2E User",
+              },
+            }
           case "getIssue":
             return issue
           case "getViewer":

@@ -1,11 +1,16 @@
 import { Controller } from "src/controller"
 import { Ipc } from "src/types/ActionMessage"
 
+import type { LinearService } from "src/linear/LinearService"
+
 type GitProviderIpcResult =
   | { handled: true; payload: unknown }
   | { handled: false; payload?: undefined }
 
-export async function handleGitProviderIpcMessage(msg: Ipc<"req">): Promise<GitProviderIpcResult> {
+export async function handleGitProviderIpcMessage(
+  msg: Ipc<"req">,
+  linearService: LinearService,
+): Promise<GitProviderIpcResult> {
   const service = Controller.gitProviderService
   if (!service) {
     return { handled: false }
@@ -43,7 +48,7 @@ export async function handleGitProviderIpcMessage(msg: Ipc<"req">): Promise<GitP
       return { handled: true, payload: status }
     }
     case "openPullRequest": {
-      const issue = await Controller.linearService.getIssue(msg.issueId)
+      const issue = await linearService.getIssue(msg.issueId)
       const result = await service.openPullRequestForIssue(
         {
           identifier: issue.identifier,

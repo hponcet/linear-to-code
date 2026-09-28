@@ -115,6 +115,29 @@ suite("LinearCacheStore", () => {
     assert.strictEqual(fetchCount, 2)
   })
 
+  test("prefix invalidation also discards pending pages and their late cache writes", async () => {
+    const cache = new LinearCacheStore()
+    let release!: (value: string) => void
+    const old = cache.getOrFetch(
+      "navigationIssues:page",
+      () =>
+        new Promise<string>((resolve) => {
+          release = resolve
+        }),
+    )
+    cache.deleteByPrefix("navigationIssues:")
+    assert.strictEqual(
+      await cache.getOrFetch("navigationIssues:page", async () => "fresh"),
+      "fresh",
+    )
+    release("stale")
+    await old
+    assert.strictEqual(
+      await cache.getOrFetch("navigationIssues:page", async () => "unexpected"),
+      "fresh",
+    )
+  })
+
   test("clear removes all cached and pending entries", async () => {
     const cache = new LinearCacheStore()
     await cache.getOrFetch("viewer", async () => "viewer-data")

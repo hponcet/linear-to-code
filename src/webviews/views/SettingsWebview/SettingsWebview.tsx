@@ -35,7 +35,7 @@ export function SettingsWebview() {
     return () => window.removeEventListener("message", handleMessage)
   }, [])
 
-  const { issueId, linearAccessToken } = props
+  const { issueId, connection } = props
 
   if (!loaded) {
     return <Container loading={true} />
@@ -43,10 +43,10 @@ export function SettingsWebview() {
 
   const content = <SettingsView activeTab={activeTab} onActiveTabChange={setActiveTab} />
 
-  if (issueId && linearAccessToken) {
+  if (issueId && connection) {
     return (
       <Container loading={false}>
-        <IssueContextProvider issueId={issueId} linearAccessToken={linearAccessToken}>
+        <IssueContextProvider issueId={issueId} connection={connection}>
           {content}
         </IssueContextProvider>
       </Container>

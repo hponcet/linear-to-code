@@ -15,6 +15,7 @@ const isProduction = process.env.NODE_ENV === "production"
 module.exports = {
   mode: isProduction ? "production" : "development",
   entry: {
+    navigation: resolveApp("./src/webviews/entries/navigation.tsx"),
     issue: resolveApp("./src/webviews/entries/issue.tsx"),
     settings: resolveApp("./src/webviews/entries/settings.tsx"),
     startWork: resolveApp("./src/webviews/entries/startWork.tsx"),

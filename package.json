@@ -83,16 +83,25 @@
           "when": "!linearToCode:isLinearAuthenticated"
         },
         {
+          "id": "linearToCode.views.navigation",
+          "name": "Workspace",
+          "type": "webview",
+          "when": "linearToCode:isLinearAuthenticated",
+          "initialSize": 2
+        },
+        {
           "id": "linearToCode.views.myIssues",
-          "name": "My issues",
+          "name": "Issues",
           "icon": "resources/images/linear_dark.png",
-          "when": "linearToCode:isLinearAuthenticated"
+          "when": "linearToCode:isLinearAuthenticated",
+          "initialSize": 6
         },
         {
           "id": "linearToCode.views.pullRequests",
           "name": "Pull requests",
           "icon": "resources/images/linear_dark.png",
-          "when": "linearToCode:isLinearAuthenticated"
+          "when": "linearToCode:isLinearAuthenticated",
+          "initialSize": 2
         }
       ]
     },
@@ -168,7 +177,7 @@
       },
       {
         "command": "linearToCode.commands.toggleViewMode",
-        "title": "Toggle View: My Issues / Current Cycle",
+        "title": "Select Issue View",
         "icon": "$(list-filter)",
         "category": "Linear to Code",
         "enablement": "linearToCode:isLinearAuthenticated"
@@ -298,11 +307,6 @@
       "view/title": [
         {
           "command": "linearToCode.commands.refresh",
-          "when": "view == linearToCode.views.myIssues",
-          "group": "navigation"
-        },
-        {
-          "command": "linearToCode.commands.toggleViewMode",
           "when": "view == linearToCode.views.myIssues",
           "group": "navigation"
         },

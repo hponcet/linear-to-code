@@ -53,3 +53,9 @@ body * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-color) transparent;
 }
+
+.linearWorkspaceBadge {
+  color: var(--lm-color-text-muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}

@@ -8,7 +8,7 @@ import { StartWorkContent } from "./StartWorkContent"
 export function StartWorkWebview() {
   const [props, loaded] = useProps<"startWork">()
 
-  const { issueId, linearAccessToken, fromCheckout, isCursor } = props
+  const { issueId, connection, fromCheckout, isCursor } = props
 
   const {
     branches,
@@ -20,17 +20,14 @@ export function StartWorkWebview() {
     updateIssueSettings,
   } = useIssueBranches({ issueId: issueId! })
 
-  if (!issueId || !linearAccessToken || isLoading) {
+  if (!issueId || !connection || isLoading) {
     return <Container loading={true} />
   }
 
   return (
-    <StartWorkContextProvider
-      isLoading={!loaded}
-      issueId={issueId}
-      linearAccessToken={linearAccessToken}
-    >
+    <StartWorkContextProvider isLoading={!loaded} issueId={issueId} connection={connection}>
       <Container loading={!loaded}>
+        <div className="linearWorkspaceBadge">{connection.name}</div>
         <StartWorkContent
           branches={branches}
           currentBranch={currentBranch}

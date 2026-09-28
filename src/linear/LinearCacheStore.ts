@@ -12,6 +12,7 @@ export const CACHE_TTL_BY_PREFIX: Record<string, number> = {
   "issueIdentifier:": SHORT_CACHE_TTL_MS,
   assignedIssues: SHORT_CACHE_TTL_MS,
   "cycleIssues:": SHORT_CACHE_TTL_MS,
+  "navigationIssues:": SHORT_CACHE_TTL_MS,
   "teamMetadata:": DEFAULT_CACHE_TTL_MS,
   "projectLabels:": DEFAULT_CACHE_TTL_MS,
   workspaceUsers: DEFAULT_CACHE_TTL_MS,
@@ -100,7 +101,7 @@ export class LinearCacheStore {
   }
 
   deleteByPrefix(prefix: string): void {
-    for (const key of this.#cache.keys()) {
+    for (const key of new Set([...this.#cache.keys(), ...this.#pending.keys()])) {
       if (key.startsWith(prefix)) {
         this.#cache.delete(key)
         this.#pending.delete(key)

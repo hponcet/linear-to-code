@@ -4,6 +4,7 @@ import { Controller } from "src/controller"
 import { ensureCursorEnvironment } from "src/cursor/detectCursorEnvironment"
 import { launchCursorAgentForPullRequest } from "src/cursor/launchCursorAgentForPullRequest"
 import { PullRequestInfo } from "src/gitProviders/types"
+import { getActiveWorkspaceId } from "src/linear/auth"
 import { RefType } from "src/types/GitAPI"
 import { parseIssueIdentifierFromPullRequest } from "src/utils/parseIssueIdentifier"
 import {
@@ -26,6 +27,8 @@ import {
 import { createMessageTreeItem, createPullRequestTreeItem, toPullRequestItem } from "./treeItems"
 import { MessageItem, PullRequestItem, PullRequestTreeNode } from "./types"
 
+import type { LinearService } from "src/linear/LinearService"
+
 export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
   #onDidChangeTreeData = new EventEmitter<void>()
   onDidChangeTreeData = this.#onDidChangeTreeData.event
@@ -35,6 +38,7 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
   #nodes: PullRequestTreeNode[] = []
   #assigneeIconByUserId = new Map<string, Uri>()
   #loading = false
+  #generation = 0
   #disposables: Disposable[] = []
 
   #treeView: ReturnType<typeof window.createTreeView<PullRequestTreeNode>> | null = null
@@ -94,6 +98,7 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
   }
 
   public dispose(): void {
+    this.#generation += 1
     this.#disposables.forEach((disposable) => disposable.dispose())
     this.#disposables = []
     this.#treeView = null
@@ -139,12 +144,17 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
   }
 
   async #fetchPullRequests(): Promise<void> {
+    const generation = ++this.#generation
+    const workspaceId = getActiveWorkspaceId()
+    if (!workspaceId) return
+    const linearService = Controller.linearService
     this.#loading = true
     this.#treeItems.clear()
     this.#onDidChangeTreeData.fire()
 
     const result = await Controller.gitProviderService.listOpenPullRequests()
 
+    if (generation !== this.#generation || workspaceId !== getActiveWorkspaceId()) return
     this.#loading = false
     this.#treeItems.clear()
 
@@ -155,7 +165,13 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
       this.#nodes = [this.#messageNode("No open pull requests for this repository.")]
       this.#assigneeIconByUserId.clear()
     } else {
-      this.#nodes = await this.#enrichPullRequestsWithAssigneeIcons(result.pullRequests)
+      const nodes = await this.#enrichPullRequestsWithAssigneeIcons(
+        result.pullRequests,
+        linearService,
+        generation,
+      )
+      if (generation !== this.#generation || workspaceId !== getActiveWorkspaceId()) return
+      this.#nodes = nodes
     }
 
     this.#onDidChangeTreeData.fire()
@@ -163,6 +179,8 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
 
   async #enrichPullRequestsWithAssigneeIcons(
     pullRequests: PullRequestInfo[],
+    linearService: LinearService,
+    generation: number,
   ): Promise<PullRequestItem[]> {
     const assigneeIdByIdentifier = new Map<string, string>()
     const linkedIssues: Issue[] = []
@@ -178,7 +196,7 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     await Promise.all(
       identifiers.map(async (identifier) => {
         try {
-          const issue = await Controller.linearService.getIssueByIdentifier(identifier)
+          const issue = await linearService.getIssueByIdentifier(identifier)
           if (!issue) {
             return
           }
@@ -192,12 +210,10 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     )
 
     if (this.#context && linkedIssues.length > 0) {
-      const assigneeUsers = await this.#resolveAssigneeUsers(linkedIssues)
-      this.#assigneeIconByUserId = await buildUserAvatarIconCacheForContext(
-        this.#context,
-        assigneeUsers,
-      )
-    } else {
+      const assigneeUsers = await this.#resolveAssigneeUsers(linkedIssues, linearService)
+      const icons = await buildUserAvatarIconCacheForContext(this.#context, assigneeUsers)
+      if (generation === this.#generation) this.#assigneeIconByUserId = icons
+    } else if (generation === this.#generation) {
       this.#assigneeIconByUserId.clear()
     }
 
@@ -216,8 +232,8 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     })
   }
 
-  async #resolveAssigneeUsers(issues: Issue[]): Promise<User[]> {
-    const workspaceUsers = await Controller.linearService.getWorkspaceUsers()
+  async #resolveAssigneeUsers(issues: Issue[], linearService: LinearService): Promise<User[]> {
+    const workspaceUsers = await linearService.getWorkspaceUsers()
     const usersById = new Map(workspaceUsers.map((user) => [user.id, user]))
 
     const missingAssigneeIds = [
@@ -265,6 +281,7 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
   }
 
   private async reviewPullRequestWithAgent(pullRequest: PullRequestInfo): Promise<void> {
+    const connection = Controller.issueViewer.connection
     if (!(await ensureCursorEnvironment())) {
       void window.showInformationMessage("Review with agent is available in Cursor only.")
       return
@@ -276,7 +293,7 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     }
 
     try {
-      await launchCursorAgentForPullRequest(pullRequest, this.#context)
+      await launchCursorAgentForPullRequest(pullRequest, this.#context, connection)
     } catch (error) {
       window.showErrorMessage(
         error instanceof Error
@@ -316,13 +333,14 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     }
 
     try {
-      const issue = await Controller.linearService.getIssueByIdentifier(issueIdentifier)
+      const viewer = Controller.issueViewer
+      const issue = await viewer.service.getIssueByIdentifier(issueIdentifier)
       if (!issue) {
         window.showInformationMessage(`Linear issue ${issueIdentifier} was not found.`)
         return
       }
 
-      await Controller.issueViewer.openIssue(Controller.linearService.toTreeIssue(issue))
+      await viewer.openIssue(viewer.service.toTreeIssue(issue))
     } catch (error) {
       window.showErrorMessage(
         error instanceof Error ? error.message : `Failed to open Linear issue ${issueIdentifier}.`,

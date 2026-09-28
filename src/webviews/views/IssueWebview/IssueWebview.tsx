@@ -15,9 +15,9 @@ import "./IssueWebview.scss"
 
 export default function IssueWebview() {
   const [props, loaded] = useProps()
-  const { issueId, linearAccessToken } = props
+  const { issueId, connection } = props
 
-  if (!issueId || !linearAccessToken) {
+  if (!issueId || !connection) {
     return <Container loading={true} />
   }
 
@@ -26,10 +26,11 @@ export default function IssueWebview() {
       key={issueId}
       isLoading={!loaded}
       issueId={issueId}
-      linearAccessToken={linearAccessToken}
+      connection={connection}
     >
       <ModalsContextProvider>
         <Container>
+          <div className="linearWorkspaceBadge">{connection.name}</div>
           <IssueHeader />
           <div className="issueBody">
             <IssueContent />

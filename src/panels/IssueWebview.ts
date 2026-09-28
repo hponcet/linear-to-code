@@ -1,15 +1,20 @@
 import { Issue } from "@linear/sdk"
 import { Webviews } from "src/constants"
 import { Controller } from "src/controller"
-import { LinearSecretKeys } from "src/linear/auth"
 import { MyIssuesView } from "src/views/myIssues"
 import { ExtensionContext, ViewColumn } from "vscode"
 
 import { AbstractIssueWebview } from "./AbstractIssueWebview"
 
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+
 export class IssueWebview extends AbstractIssueWebview<"issue"> {
-  constructor(context: ExtensionContext, issueActions: MyIssuesView["issuesActions"]) {
-    super(context, issueActions)
+  constructor(
+    context: ExtensionContext,
+    issueActions: MyIssuesView["issuesActions"],
+    connection: LinearWorkspace,
+  ) {
+    super(context, issueActions, connection)
   }
 
   async open(issue: Issue, column?: ViewColumn) {
@@ -24,7 +29,7 @@ export class IssueWebview extends AbstractIssueWebview<"issue"> {
   public async getProps() {
     return {
       issueId: this.issue?.id || null,
-      linearAccessToken: await this._context.secrets.get(LinearSecretKeys.accessToken),
+      connection: this.connection,
     }
   }
 

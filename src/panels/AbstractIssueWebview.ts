@@ -1,15 +1,18 @@
 import { Issue } from "@linear/sdk"
 import { Controller } from "src/controller"
 import { launchCursorAgentForIssueId } from "src/cursor/launchCursorAgentForIssue"
+import { linearWorkspaces, linearConnect } from "src/linear/auth"
 import { formatLinearError } from "src/linear/formatLinearError"
 import { handleGitProviderIpcMessage } from "src/panels/gitProviderIpcHandlers"
 import { handleLinearIpcMessage } from "src/panels/linearIpcHandlers"
 import { Ipc, Props } from "src/types/ActionMessage"
 import { Stores } from "src/utils/Stores"
 import { MyIssuesView } from "src/views/myIssues"
-import { ExtensionContext, ViewColumn, WebviewPanel } from "vscode"
+import { ExtensionContext, ViewColumn, WebviewPanel, window } from "vscode"
 
 import { AbstractWebview, ReactWebview } from "./AbstractWebview"
+
+import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
 
 export interface ReactIssueWebview<T extends keyof Props> extends ReactWebview<T> {
   open(issue: Partial<Issue>, column: ViewColumn, ...params: any[]): Promise<WebviewPanel>
@@ -31,7 +34,11 @@ export abstract class AbstractIssueWebview<T extends keyof Props>
     ...params: any[]
   ): Promise<WebviewPanel>
 
-  constructor(context: ExtensionContext, issueActions: MyIssuesView["issuesActions"]) {
+  constructor(
+    context: ExtensionContext,
+    issueActions: MyIssuesView["issuesActions"],
+    protected connection: LinearWorkspace,
+  ) {
     super(context)
     this.issueActions = issueActions
     this.issuesStore = new Stores(context).issuesStore()
@@ -48,13 +55,16 @@ export abstract class AbstractIssueWebview<T extends keyof Props>
       const linearResult = await handleLinearIpcMessage(
         msg,
         this.issueActions,
-        Controller.linearService,
+        linearWorkspaces.service(this.connection.id),
       )
       if (linearResult.handled) {
         return this.postMessage(msg.type, linearResult.payload, msg)
       }
 
-      const gitProviderResult = await handleGitProviderIpcMessage(msg)
+      const gitProviderResult = await handleGitProviderIpcMessage(
+        msg,
+        linearWorkspaces.service(this.connection.id),
+      )
       if (gitProviderResult.handled) {
         return this.postMessage(msg.type, gitProviderResult.payload, msg)
       }
@@ -84,7 +94,7 @@ export abstract class AbstractIssueWebview<T extends keyof Props>
           return this.postMessage(msg.type, void 0, msg)
         }
         case "launchCursorAgent": {
-          await launchCursorAgentForIssueId(msg.issueId, this._context)
+          await launchCursorAgentForIssueId(msg.issueId, this._context, this.connection)
           return this.postMessage(msg.type, void 0, msg)
         }
         case "openSettings": {
@@ -122,7 +132,15 @@ export abstract class AbstractIssueWebview<T extends keyof Props>
         }
       }
     } catch (error) {
-      return this.postMessage(msg.type, formatLinearError(error), msg, true)
+      const message = formatLinearError(error)
+      if (/authenticat|unauthorized|Linear client is not available|expired/i.test(message)) {
+        void window
+          .showErrorMessage(`Reconnect ${this.connection.name} to continue.`, "Reconnect")
+          .then((choice) => {
+            if (choice) void linearConnect(this._context, this.connection.id)
+          })
+      }
+      return this.postMessage(msg.type, message, msg, true)
     }
 
     return Promise.resolve(false)

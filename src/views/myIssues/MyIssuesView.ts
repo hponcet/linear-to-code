@@ -3,6 +3,13 @@ import { Commands, Views } from "src/constants"
 import { Controller } from "src/controller"
 import { ensureCursorEnvironment } from "src/cursor/detectCursorEnvironment"
 import { launchCursorAgentForIssue } from "src/cursor/launchCursorAgentForIssue"
+import { linearWorkspaces, workspaceChanges } from "src/linear/auth"
+import {
+  restoreNavigationFilters,
+  NavigationFilters,
+  NavigationMetadata,
+  normalizeNavigationFilters,
+} from "src/linear/navigation"
 import { filterWorkflowStatesByType } from "src/panels/commons/worflowStates"
 import { IssueWebview } from "src/panels/IssueWebview"
 import { SettingsWebview, SettingsTab } from "src/panels/SettingsWebview"
@@ -45,17 +52,16 @@ import {
   Issue,
   MIME_TYPE_ISSUE,
   DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS,
-  ViewMode,
 } from "./types"
 
 import { getDefaultWorkflowStateExpanded, TreeViewExpansionState } from "../treeViewExpansionState"
 
+type TreeElement = Team | WorkflowState | Issue
+
 type IssueQuickPickItem = QuickPickItem & { issueId: Issue["id"] }
 
 export class MyIssuesView
-  implements
-    TreeDataProvider<Team | WorkflowState | Issue>,
-    TreeDragAndDropController<Issue | WorkflowState | Team>
+  implements TreeDataProvider<TreeElement>, TreeDragAndDropController<TreeElement>
 {
   dropMimeTypes = [MIME_TYPE_ISSUE]
   dragMimeTypes = [MIME_TYPE_ISSUE, "text/uri-list"]
@@ -74,7 +80,20 @@ export class MyIssuesView
   #myIssues: Map<string, Issue> = new Map()
   #assigneeIconByUserId: Map<string, Uri> = new Map()
   #assigneeByUserId: Map<string, User> = new Map()
-  #viewMode: ViewMode = "myIssues"
+  filters: NavigationFilters
+  metadata: NavigationMetadata | undefined
+  error: string | undefined
+  private active = false
+  private generation = 0
+  private metadataGeneration = 0
+
+  get service() {
+    return linearWorkspaces.service(this.workspaceId)
+  }
+  get connection() {
+    return this.workspaceInfo
+  }
+  private workspaceInfo: ReturnType<typeof linearWorkspaces.get>
 
   #issuesWebviews: Map<string, IssueWebview> = new Map()
   #startWorkWebviews: Map<string, StartWorkWebview> = new Map()
@@ -85,10 +104,17 @@ export class MyIssuesView
 
   #disposables: Disposable[] = []
 
-  #treeView: ReturnType<typeof window.createTreeView<Team | WorkflowState | Issue>> | null = null
+  #treeView: ReturnType<typeof window.createTreeView<TreeElement>> | null = null
 
-  constructor(context: ExtensionContext) {
+  constructor(
+    context: ExtensionContext,
+    public readonly workspaceId: string,
+  ) {
     this.#context = context
+    this.workspaceInfo = linearWorkspaces.get(workspaceId)
+    this.filters = restoreNavigationFilters(
+      context.workspaceState.get(`linearToCode.navigation.${workspaceId}`),
+    )
     this.issuesStore = new Stores(context).issuesStore()
   }
 
@@ -96,7 +122,14 @@ export class MyIssuesView
   // Initialization
   // ============================================================
 
+  private viewForIssue(issue: Issue): MyIssuesView {
+    return issue.workspaceId && issue.workspaceId !== this.workspaceId
+      ? Controller.issueViewerFor(issue.workspaceId)
+      : this
+  }
+
   public async initialize(): Promise<void> {
+    this.active = true
     this._startAutoRefresh()
 
     const focusDisposable = window.onDidChangeWindowState((state) => {
@@ -135,30 +168,39 @@ export class MyIssuesView
 
     // Register commands
     const disposableCommands = [
-      commands.registerCommand(Commands.openIssue, (issue: Issue) => this.openIssue(issue)),
+      commands.registerCommand(Commands.openIssue, (issue: Issue) =>
+        this.viewForIssue(issue).openIssue(issue),
+      ),
       commands.registerCommand(
         Commands.openIssueExternal,
         async (issueIdentifier: Issue["identifier"] | Issue) =>
-          await this.openIssueExternal(issueIdentifier),
+          await (
+            typeof issueIdentifier === "string" ? this : this.viewForIssue(issueIdentifier)
+          ).openIssueExternal(issueIdentifier),
       ),
       commands.registerCommand(Commands.openCurrentBranchIssue, () =>
         this.openCurrentBranchIssue(),
       ),
-      commands.registerCommand(Commands.startWork, (issue: Issue) => this.startWork(issue)),
+      commands.registerCommand(Commands.startWork, (issue: Issue) =>
+        this.viewForIssue(issue).startWork(issue),
+      ),
       commands.registerCommand(Commands.startWorkWithAgent, (issue: Issue) =>
-        this.startWorkWithAgent(issue),
+        this.viewForIssue(issue).startWorkWithAgent(issue),
       ),
-      commands.registerCommand(Commands.configureBranch, (issue: Issue) => this.startWork(issue)),
+      commands.registerCommand(Commands.configureBranch, (issue: Issue) =>
+        this.viewForIssue(issue).startWork(issue),
+      ),
       commands.registerCommand(Commands.checkoutIssue, (issue: Issue) =>
-        this.checkoutToIssueBranch(issue.id),
+        this.viewForIssue(issue).checkoutToIssueBranch(issue.id),
       ),
-      commands.registerCommand(Commands.refresh, () => this.fetchDatas()),
-      commands.registerCommand(Commands.toggleViewMode, () => this.toggleViewMode()),
+      commands.registerCommand(Commands.refresh, () => this.refresh()),
       commands.registerCommand(Commands.searchIssues, () => this.searchIssues()),
       commands.registerCommand(Commands.openPullRequest, (issue: Issue) =>
-        this.openPullRequestForIssue(issue),
+        this.viewForIssue(issue).openPullRequestForIssue(issue),
       ),
-      commands.registerCommand(Commands.openSettings, (issue: Issue) => this.openSettings(issue)),
+      commands.registerCommand(Commands.openSettings, (issue: Issue) =>
+        this.viewForIssue(issue).openSettings(issue),
+      ),
       commands.registerCommand(Commands.openSettingsTab, (tab: SettingsTab) =>
         this.openSettingsTab(tab),
       ),
@@ -176,15 +218,48 @@ export class MyIssuesView
   // ============================================================
 
   public async fetchDatas() {
-    const service = Controller.linearService
-    this.#me = await service.getViewer()
-    this.#teams = await service.getTeams()
-    this.#workflowStatesByTeam = await service.getWorkflowStatesByTeam()
+    const generation = ++this.metadataGeneration
+    try {
+      const [me, teams, states, metadata] = await Promise.all([
+        this.service.getViewer(),
+        this.service.getTeams(),
+        this.service.getWorkflowStatesByTeam(),
+        this.service.getNavigationMetadata(),
+      ])
+      if (!this.active || generation !== this.metadataGeneration) return
+      this.#me = me
+      this.#teams = teams
+      this.#workflowStatesByTeam = states
+      this.metadata = metadata
+      await this.setFilters(this.filters)
+    } catch (error) {
+      if (this.active && generation === this.metadataGeneration) this.showFetchError(error)
+    }
+  }
+
+  public async setFilters(filters: NavigationFilters) {
+    this.generation += 1
+    this.#myIssues.clear()
+    this.#treeItems.clear()
+    this.#onDidChangeTreeData.fire()
+    this.filters = this.metadata ? normalizeNavigationFilters(filters, this.metadata) : filters
+    await this.#context.workspaceState.update(
+      `linearToCode.navigation.${this.workspaceId}`,
+      this.filters,
+    )
+    this.service.invalidateIssueLists()
     await this._refreshIssues()
+    workspaceChanges.fire()
+  }
+
+  private showFetchError(error: unknown) {
+    this.error = error instanceof Error ? error.message : String(error)
+    if (this.#treeView) this.#treeView.message = `Unable to load Linear issues. ${this.error}`
+    workspaceChanges.fire()
   }
 
   private async _resolveAssigneeUsers(issues: Issue[]): Promise<User[]> {
-    const workspaceUsers = await Controller.linearService.getWorkspaceUsers()
+    const workspaceUsers = await this.service.getWorkspaceUsers()
     const usersById = new Map(workspaceUsers.map((user) => [user.id, user]))
 
     if (this.#me?.id) {
@@ -227,21 +302,22 @@ export class MyIssuesView
     return [...usersById.values()]
   }
 
-  private async _refreshAssigneeIcons(issues: Issue[]) {
+  private async _refreshAssigneeIcons(issues: Issue[], generation = this.generation) {
     const users = await this._resolveAssigneeUsers(issues)
+    const icons = await buildUserAvatarIconCacheForContext(this.#context, users)
+    if (generation !== this.generation) return
     this.#assigneeByUserId = new Map(users.map((user) => [user.id, user]))
-    this.#assigneeIconByUserId = await buildUserAvatarIconCacheForContext(this.#context, users)
+    this.#assigneeIconByUserId = icons
   }
 
   private async _refetchIssue(issueId: Issue["id"]): Promise<Issue | null> {
     try {
-      const issue = Controller.linearService.toTreeIssue(
-        await Controller.linearService.getIssue(issueId, { bypassCache: true }),
+      const issue = this.service.toTreeIssue(
+        await this.service.getIssue(issueId, { bypassCache: true }),
       )
-      this.#myIssues.set(issue.id, issue)
       this._updateWebviewsIfNeeded(issue)
-      await this._refreshAssigneeIcons(Array.from(this.#myIssues.values()))
-      this.#onDidChangeTreeData.fire()
+      this.service.invalidateIssueLists()
+      if (this.active) await this._refreshIssues()
       return issue
     } catch (error) {
       window.showErrorMessage(
@@ -252,38 +328,42 @@ export class MyIssuesView
   }
 
   private async _refreshIssues() {
-    let issues: Issue[]
-
-    if (this.#viewMode === "myIssues") {
-      issues = await Controller.linearService.getAssignedIssues()
-    } else {
-      issues = await Controller.linearService.getCurrentCycleIssues()
+    if (!this.active || !this.metadata) return
+    const generation = ++this.generation
+    const filters = this.filters
+    let after: string | undefined
+    if (this.#treeView) this.#treeView.message = "Loading issues..."
+    try {
+      do {
+        const page = await this.service.getNavigationIssues(filters, after)
+        if (!this.active || generation !== this.generation) return
+        const issues = after ? [...this.#myIssues.values(), ...page.issues] : page.issues
+        await this._refreshAssigneeIcons(issues, generation)
+        if (!this.active || generation !== this.generation) return
+        this.error = undefined
+        if (!after) this.#myIssues.clear()
+        page.issues.forEach((issue) => {
+          Object.assign(issue, { workspaceId: this.workspaceId })
+          this._updateWebviewsIfNeeded(issue)
+          this.#myIssues.set(issue.id, issue)
+        })
+        after = page.nextCursor ?? undefined
+        this.#treeItems.clear()
+        if (this.#treeView) {
+          this.#treeView.title = "Issues"
+          this.#treeView.description = `${this.#myIssues.size} ${after ? "loaded · partial list" : "issues"}`
+          this.#treeView.message = after
+            ? "Loading remaining issues..."
+            : this.#myIssues.size
+              ? undefined
+              : "No issues match these filters."
+        }
+        this.#onDidChangeTreeData.fire()
+        workspaceChanges.fire()
+      } while (after && this.active && generation === this.generation)
+    } catch (error) {
+      if (generation === this.generation) this.showFetchError(error)
     }
-
-    // Clear previous issues and add new ones
-    this.#myIssues.clear()
-    issues.forEach((issue) => {
-      this._updateWebviewsIfNeeded(issue)
-      this.#myIssues.set(issue.id, issue)
-    })
-
-    await this._refreshAssigneeIcons(issues)
-    this.#treeItems.clear()
-    this.#onDidChangeTreeData.fire()
-  }
-
-  public async toggleViewMode() {
-    this.#viewMode = this.#viewMode === "myIssues" ? "currentCycle" : "myIssues"
-
-    // Update TreeView title
-    if (this.#treeView) {
-      this.#treeView.title = this.#viewMode === "myIssues" ? "My Issues" : "Current Cycle"
-    }
-
-    // Update context for conditional button icon/title
-    commands.executeCommand("setContext", "linearToCode:viewMode", this.#viewMode)
-
-    await this._refreshIssues()
   }
 
   public async searchIssues(): Promise<void> {
@@ -300,7 +380,7 @@ export class MyIssuesView
       quickPick.busy = true
 
       try {
-        const issues = await Controller.linearService.searchIssues(value)
+        const issues = await this.service.searchIssues(value)
         if (currentRequestId === requestId) {
           quickPick.items = issues.map((issue) => ({
             label: issue.identifier,
@@ -355,7 +435,7 @@ export class MyIssuesView
   }
 
   #getExpansionStorageKey(): string {
-    return `linearToCode.myIssuesTreeExpansion.${this.#viewMode}`
+    return `linearToCode.myIssuesTreeExpansion.${this.workspaceId}`
   }
 
   #getExpansionState(): TreeViewExpansionState {
@@ -456,7 +536,7 @@ export class MyIssuesView
   public async openIssue(issue: Issue, viewColumn?: ViewColumn) {
     let webview = this.#issuesWebviews.get(issue.id)
     if (!webview) {
-      webview = new IssueWebview(this.#context, this.issuesActions)
+      webview = new IssueWebview(this.#context, this.issuesActions, this.connection)
       this.#issuesWebviews.set(issue.id, webview)
     }
     await webview.open(issue, viewColumn ?? ViewColumn.Active)
@@ -466,7 +546,7 @@ export class MyIssuesView
     const identifier =
       typeof issueIdentifier === "string" ? issueIdentifier : issueIdentifier.identifier
 
-    const organisation = await this.#me?.organization
+    const organisation = this.connection
     if (organisation?.urlKey) {
       const url = `https://linear.app/${organisation.urlKey}/issue/${identifier}`
       await commands.executeCommand("vscode.open", Uri.parse(url))
@@ -491,9 +571,7 @@ export class MyIssuesView
 
         if (!issue) {
           try {
-            issue = Controller.linearService.toTreeIssue(
-              await Controller.linearService.getIssue(issueId),
-            )
+            issue = this.service.toTreeIssue(await this.service.getIssue(issueId))
           } catch {
             window.showErrorMessage("Failed to fetch issue from Linear")
             return
@@ -511,7 +589,12 @@ export class MyIssuesView
   public async startWork(issue: Issue, fromCheckout?: true) {
     let webview = this.#startWorkWebviews.get(issue.id)
     if (!webview) {
-      webview = new StartWorkWebview(this.#context, this.issuesActions, fromCheckout)
+      webview = new StartWorkWebview(
+        this.#context,
+        this.issuesActions,
+        this.connection,
+        fromCheckout,
+      )
       this.#startWorkWebviews.set(issue.id, webview)
     }
     await webview.open(issue, ViewColumn.Active)
@@ -523,13 +606,17 @@ export class MyIssuesView
       return
     }
 
-    await launchCursorAgentForIssue(issue, this.#context)
+    await launchCursorAgentForIssue(issue, this.#context, this.connection)
   }
 
   public async openSettingsTab(tab: SettingsTab): Promise<void> {
     const issue = this.#myIssues.values().next().value
     if (!this.#settingsWebview) {
-      this.#settingsWebview = new SettingsWebview(this.#context, this.issuesActions)
+      this.#settingsWebview = new SettingsWebview(
+        this.#context,
+        this.issuesActions,
+        this.connection,
+      )
     }
     await this.#settingsWebview.open(issue ?? {}, ViewColumn.Active, { tab })
   }
@@ -539,7 +626,11 @@ export class MyIssuesView
     options?: { tab?: "git" | "workflow" | "agent" },
   ): Promise<void> {
     if (!this.#settingsWebview) {
-      this.#settingsWebview = new SettingsWebview(this.#context, this.issuesActions)
+      this.#settingsWebview = new SettingsWebview(
+        this.#context,
+        this.issuesActions,
+        this.connection,
+      )
     }
     await this.#settingsWebview.open(issue, ViewColumn.Active, options)
   }
@@ -626,10 +717,7 @@ export class MyIssuesView
     }
 
     try {
-      const issue = Controller.linearService.toTreeIssue(
-        await Controller.linearService.getIssue(issueId),
-      )
-      this.#myIssues.set(issue.id, issue)
+      const issue = this.service.toTreeIssue(await this.service.getIssue(issueId))
       return issue
     } catch {
       window.showErrorMessage("Failed to fetch issue from Linear")
@@ -646,8 +734,9 @@ export class MyIssuesView
       .forEach((webview) => webview.postListenerMessage("gitActive", gitStatus))
   }
 
-  public refresh(): void {
-    this.fetchDatas()
+  public refresh(): Promise<void> {
+    this.service.invalidateAll()
+    return this.fetchDatas()
   }
 
   issuesActions = {
@@ -658,60 +747,16 @@ export class MyIssuesView
       if (issue) {
         await this.openIssue(issue)
       } else {
-        const issueWithKey = Controller.linearService.toTreeIssue(
-          await Controller.linearService.getIssue(issueId),
-        )
-        this.#myIssues.set(issueWithKey.id, issueWithKey)
+        const issueWithKey = this.service.toTreeIssue(await this.service.getIssue(issueId))
         await this.openIssue(issueWithKey)
       }
     },
     openIssueExternal: this.openIssueExternal.bind(this) as typeof this.openIssueExternal,
     updateIssue: async (issueId: Issue["id"]) => {
-      if (!issueId) return
-
-      if (this.#myIssues.has(issueId)) {
-        const issue = Controller.linearService.toTreeIssue(
-          await Controller.linearService.getIssue(issueId, { bypassCache: true }),
-        )
-        this.#myIssues.set(issue.id, issue)
-        await this._refreshAssigneeIcons(Array.from(this.#myIssues.values()))
-        this.#onDidChangeTreeData.fire()
-      }
+      await this._refetchIssue(issueId)
     },
     syncIssue: async (payload: IssueSyncPayload) => {
-      const cached = this.#myIssues.get(payload.issueId)
-      if (!cached) {
-        return
-      }
-
-      if (payload.stateId && payload.stateId !== cached.stateId) {
-        await this._refetchIssue(payload.issueId)
-        return
-      }
-
-      if (
-        payload.assigneeId !== undefined &&
-        (payload.assigneeId ?? null) !== (cached.assigneeId ?? null)
-      ) {
-        await this._refreshIssues()
-        return
-      }
-
-      if (payload.title !== undefined) {
-        Object.assign(cached, { title: payload.title })
-      }
-      if (payload.identifier !== undefined) {
-        Object.assign(cached, { identifier: payload.identifier })
-      }
-      if (payload.priority !== undefined) {
-        Object.assign(cached, { priority: payload.priority })
-      }
-      if (payload.updatedAt) {
-        Object.assign(cached, { updatedAt: new Date(payload.updatedAt) })
-      }
-
-      this._updateWebviewsIfNeeded(cached)
-      this.#onDidChangeTreeData.fire()
+      await this._refetchIssue(payload.issueId)
     },
     startWork: async (issueId: Issue["id"]) => {
       if (!issueId) return
@@ -720,10 +765,7 @@ export class MyIssuesView
       if (issue) {
         await this.startWork(issue)
       } else {
-        const issueWithKey = Controller.linearService.toTreeIssue(
-          await Controller.linearService.getIssue(issueId),
-        )
-        this.#myIssues.set(issueWithKey.id, issueWithKey)
+        const issueWithKey = this.service.toTreeIssue(await this.service.getIssue(issueId))
         await this.startWork(issueWithKey)
       }
     },
@@ -738,10 +780,7 @@ export class MyIssuesView
         return
       }
 
-      const issueWithKey = Controller.linearService.toTreeIssue(
-        await Controller.linearService.getIssue(issueId),
-      )
-      this.#myIssues.set(issueWithKey.id, issueWithKey)
+      const issueWithKey = this.service.toTreeIssue(await this.service.getIssue(issueId))
       await this.startWorkWithAgent(issueWithKey)
     },
     refetchIssue: this._refetchIssue.bind(this) as typeof this._refetchIssue,
@@ -759,10 +798,7 @@ export class MyIssuesView
       if (issue) {
         await this.openSettings(issue, options)
       } else {
-        const issueWithKey = Controller.linearService.toTreeIssue(
-          await Controller.linearService.getIssue(issueId),
-        )
-        this.#myIssues.set(issueWithKey.id, issueWithKey)
+        const issueWithKey = this.service.toTreeIssue(await this.service.getIssue(issueId))
         await this.openSettings(issueWithKey, options)
       }
     },
@@ -772,9 +808,7 @@ export class MyIssuesView
   // TreeDataProvider Implementation
   // ============================================================
 
-  public getChildren(
-    element?: Team | WorkflowState | Issue | undefined,
-  ): ProviderResult<Team[] | WorkflowState[] | Issue[]> {
+  public getChildren(element?: TreeElement): ProviderResult<TreeElement[]> {
     if (element?.__key === "team") {
       return this._getWorkflowStatesForTeam(element.id)
     }
@@ -784,13 +818,13 @@ export class MyIssuesView
     }
 
     if (!element) {
-      return this._getRootElements()
+      return this._getRootElements() ?? []
     }
 
     return []
   }
 
-  public getTreeItem(element: Team | WorkflowState | Issue): TreeItem {
+  public getTreeItem(element: TreeElement): TreeItem {
     let item: TreeItem
     const expansionState = this.#getExpansionState()
 
@@ -830,10 +864,7 @@ export class MyIssuesView
 
   private _getRootElements(): Team[] | WorkflowState[] | null {
     const teams = Object.values(this.#teams).filter((team) =>
-      Array.from(this.#myIssues.values()).some(
-        // @ts-expect-error
-        (issue) => issue._team.id === team.id,
-      ),
+      Array.from(this.#myIssues.values()).some((issue) => issue.teamId === team.id),
     )
 
     if (teams.length === 0) {
@@ -848,15 +879,14 @@ export class MyIssuesView
 
   private _getWorkflowStatesForTeam(teamId: Team["id"]): WorkflowState[] {
     return filterWorkflowStatesByType(
-      Object.values(this.#workflowStatesByTeam[teamId]),
+      Object.values(this.#workflowStatesByTeam[teamId] ?? {}).filter(
+        (state) => !this.filters.stateIds.length || this.filters.stateIds.includes(state.id),
+      ),
     ) as unknown as WorkflowState[]
   }
 
   private _getIssuesForState(stateId: WorkflowState["id"]): Issue[] {
-    return Array.from(this.#myIssues.values()).filter(
-      // @ts-expect-error
-      (issue) => issue._state.id === stateId,
-    )
+    return Array.from(this.#myIssues.values()).filter((issue) => issue.stateId === stateId)
   }
 
   private _getIssuesCountForState(stateId: WorkflowState["id"]): number {
@@ -867,17 +897,11 @@ export class MyIssuesView
   // TreeDragAndDropController Implementation
   // ============================================================
 
-  public async handleDrag(
-    source: (Issue | WorkflowState | Team)[],
-    treeDataTransfer: DataTransfer,
-  ): Promise<void> {
+  public async handleDrag(source: TreeElement[], treeDataTransfer: DataTransfer): Promise<void> {
     handleTreeDrag(source, treeDataTransfer)
   }
 
-  public async handleDrop(
-    target: Team | WorkflowState | Issue | undefined,
-    sources: DataTransfer,
-  ): Promise<void> {
+  public async handleDrop(target: TreeElement | undefined, sources: DataTransfer): Promise<void> {
     const issues: Issue[] = []
 
     sources.forEach((value, key) => {
@@ -888,7 +912,11 @@ export class MyIssuesView
 
     await Promise.all(
       issues.map(async (issue) => {
-        if (!issue || issue.__key !== "issue") {
+        if (
+          !issue ||
+          issue.__key !== "issue" ||
+          (issue.workspaceId && issue.workspaceId !== this.workspaceId)
+        ) {
           return
         }
 
@@ -897,10 +925,14 @@ export class MyIssuesView
         }
 
         const targetStateId =
-          // @ts-expect-error
-          target.__key === "workflowState" ? target.id : target._state.id
+          target.__key === "workflowState"
+            ? target.id
+            : target.__key === "issue"
+              ? target.stateId
+              : undefined
+        if (!targetStateId) return
 
-        await Controller.linearService.updateIssue(issue.id, {
+        await this.service.updateIssue(issue.id, {
           stateId: targetStateId,
         })
 
@@ -913,7 +945,10 @@ export class MyIssuesView
   // Dispose
   // ============================================================
 
-  public dispose() {
+  public deactivate() {
+    this.active = false
+    this.metadataGeneration += 1
+    this.generation += 1
     if (this.#autoRefreshInterval) {
       clearInterval(this.#autoRefreshInterval)
       this.#autoRefreshInterval = null
@@ -922,7 +957,10 @@ export class MyIssuesView
     this.#disposables.forEach((d) => d.dispose())
     this.#disposables = []
     this.#treeView = null
+  }
 
+  public dispose() {
+    this.deactivate()
     this.#issuesWebviews.forEach((webview) => webview.dispose())
     this.#issuesWebviews.clear()
     this.#startWorkWebviews.forEach((webview) => webview.dispose())

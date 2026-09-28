@@ -6,11 +6,6 @@ export const LINEAR_ISSUE_SCHEME = "linear-issue"
 export const DEFAULT_AUTO_REFRESH_INTERVAL_SECONDS = 180
 
 /**
- * View mode for the TreeView
- */
-export type ViewMode = "myIssues" | "currentCycle"
-
-/**
  * Adds a discriminant key to an item to identify its type
  */
 export function addKeyOnItem<I extends object, K extends "issue" | "team" | "workflowState">(
@@ -22,4 +17,4 @@ export function addKeyOnItem<I extends object, K extends "issue" | "team" | "wor
 
 export type Team = ReturnType<typeof addKeyOnItem<LTeam, "team">>
 export type WorkflowState = ReturnType<typeof addKeyOnItem<LWorkflowState, "workflowState">>
-export type Issue = ReturnType<typeof addKeyOnItem<LIssue, "issue">>
+export type Issue = ReturnType<typeof addKeyOnItem<LIssue, "issue">> & { workspaceId?: string }
