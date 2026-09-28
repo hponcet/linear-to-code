@@ -8,6 +8,7 @@ const workflowStateTypes = [
   "started",
   "completed",
   "canceled",
+  "duplicate",
   "triage",
 ] as const
 

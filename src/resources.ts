@@ -1,4 +1,4 @@
-import path from "path"
+import * as path from "path"
 
 import { ExtensionContext, Uri } from "vscode"
 
@@ -13,6 +13,7 @@ export enum Icons {
   linearDark = "linear-dark",
   backlog = "backlog",
   canceled = "canceled",
+  duplicate = "duplicate",
   completed = "completed",
   unstarted = "unstarted",
   started0 = "started0",
@@ -63,6 +64,10 @@ export class Resources {
     this.icons.set(
       Icons.canceled,
       Uri.file(context.asAbsolutePath(path.join(statuesPath, "canceled.png"))),
+    )
+    this.icons.set(
+      Icons.duplicate,
+      Uri.file(context.asAbsolutePath(path.join(statuesPath, "duplicate.svg"))),
     )
     this.icons.set(
       Icons.completed,

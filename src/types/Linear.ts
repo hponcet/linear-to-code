@@ -15,5 +15,5 @@ export type WorkflowStateWithStateProgress = Omit<
 > & {
   stateProgress: number
   stateTypeLength: number
-  type: "triage" | "backlog" | "unstarted" | "started" | "completed" | "canceled"
+  type: "triage" | "backlog" | "unstarted" | "started" | "completed" | "canceled" | "duplicate"
 }

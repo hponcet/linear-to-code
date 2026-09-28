@@ -41,6 +41,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- Fixed Duplicate workflow states showing a question mark by adding their SVG icon to issue panels, status pickers, references, history, and the native issue tree.
+
 - Prevented stale issue pages and invalidated in-flight cache entries from replacing newer navigation results. Ticket changes now recheck membership in the current API-filtered list.
 
 - Fixed assigned labels and label choices disappearing from issue details and Start Work when an issue belongs to a project.
