@@ -27,6 +27,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Changed
 
+- Added icons to every Workspace navigation picker, using a theme-colored team icon and preserving project icons and colors.
+
 - Keep editable issue titles visually unchanged on hover and focus, without input borders or padding, and save without a visible loader that shifts the layout.
 
 - Show workspace, team name, and issue identifier above the header in issue and Start Work panels.

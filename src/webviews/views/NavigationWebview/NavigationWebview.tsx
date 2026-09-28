@@ -2,9 +2,14 @@ import { useEffect, useId, useState } from "react"
 import { Animation } from "rsuite"
 
 import { Button } from "../../components/Button/Button"
+import { ListTodoIcon } from "../../components/Editor/components/tiptap-icons/list-todo-icon"
 import { LinearReferenceIcon } from "../../components/Editor/markdownPlugins/MentionPlugin/LinearReferenceIcon"
 import { CaretIcon } from "../../components/Icons/CaretIcon"
 import { CrossIcon } from "../../components/Icons/CrossIcon"
+import { FilterIcon } from "../../components/Icons/FilterIcon"
+import { GlobeIcon } from "../../components/Icons/GlobeIcon"
+import { MenuIcon } from "../../components/Icons/MenuIcon"
+import { TeamIcon } from "../../components/Icons/TeamIcon"
 import { ProjectCycleIcon } from "../../components/ProjectCyclePicker/ProjectCycleIcon"
 import { UserAvatar } from "../../components/UserAvatar/UserAvatar"
 import { WorkflowStateIcon } from "../../components/WorklfowStatePicker/WorkflowStateIcon"
@@ -143,6 +148,10 @@ export function NavigationWebview() {
       aria-label={`${label}: ${value}`}
       title={value}
     >
+      {selector === "workspace" && <GlobeIcon size={14} />}
+      {selector === "view" && (
+        <ListTodoIcon width={14} height={14} aria-hidden="true" focusable="false" />
+      )}
       {selector === "project" && (
         <LinearReferenceIcon
           kind="project"
@@ -155,18 +164,7 @@ export function NavigationWebview() {
           }}
         />
       )}
-      {selector === "team" && (
-        <LinearReferenceIcon
-          kind="team"
-          card={{
-            kind: "view",
-            rows: [],
-            title: value,
-            icon: state?.teamIcon,
-            color: state?.teamColor,
-          }}
-        />
-      )}
+      {selector === "team" && <TeamIcon size={14} />}
       <span className="navigationValue">{value}</span>
       <span aria-hidden="true">▾</span>
     </Button>
@@ -189,7 +187,7 @@ export function NavigationWebview() {
           onClick={() => select("menu")}
           aria-label="Workspace menu"
         >
-          ···
+          <MenuIcon size={14} />
         </Button>
       </div>
       {state.workspace && (
@@ -206,7 +204,10 @@ export function NavigationWebview() {
               disabled={state.busy}
               onClick={() => select("filters")}
             >
-              Filters{state.filters.length ? ` (${state.filters.length})` : ""}
+              <FilterIcon size={14} />
+              <span className="navigationValue">
+                Filters{state.filters.length ? ` (${state.filters.length})` : ""}
+              </span>
             </Button>
           </div>
           <ActiveFilters

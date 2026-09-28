@@ -16,11 +16,16 @@
 
 .navigationRow > button {
   display: flex;
+  align-items: center;
   gap: 6px;
   min-width: 0;
   flex: 1;
   justify-content: space-between;
   border: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.navigationRow > button > svg {
+  flex-shrink: 0;
 }
 
 .navigationRow > button[aria-label="Workspace menu"] {
@@ -120,11 +125,6 @@
   height: 13px;
   align-items: center;
   justify-content: center;
-}
-
-.linearNavigation .linear-reference-icon[data-kind="team"] {
-  border: 1px solid currentColor;
-  border-radius: 3px;
 }
 
 .linearNavigation button:focus-visible {
