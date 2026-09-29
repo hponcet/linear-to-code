@@ -798,4 +798,74 @@ suite("video Markdown detection", () => {
     const glyphLine = toDocument([paragraph(text("Line")), paragraph(text(ogham))])
     assert.deepStrictEqual(trimDocumentEnd(glyphLine), glyphLine)
   })
+
+  test("spaces Markdown can't keep at the edge of a heading, a list item or a line don't block saving", () => {
+    const extensions = createLinearMarkdownExtensions()
+    const schema = getSchema(extensions)
+    const manager = new MarkdownManager({ extensions })
+    const save = (content: object[]) =>
+      inspectEditorDocument(
+        schema.nodeFromJSON({ type: "doc", content }).toJSON() as JSONContent,
+        (document) => manager.serialize(document),
+        extensions,
+      )?.markdown
+    const text = (value: string, ...marks: object[]) =>
+      marks.length ? { type: "text", text: value, marks } : { type: "text", text: value }
+    const paragraph = (...content: object[]) => ({ type: "paragraph", content })
+    const heading = (...content: object[]) => ({ type: "heading", attrs: { level: 2 }, content })
+    const item = (...content: object[]) => ({ type: "listItem", content: [paragraph(...content)] })
+    const bullets = (...items: object[]) => ({ type: "bulletList", content: items })
+    const numbers = (...items: object[]) => ({ type: "orderedList", content: items })
+    const hardBreak = { type: "hardBreak" }
+    const after = paragraph(text("After"))
+
+    // Documents that could already be saved keep exactly the same Markdown, spaces included.
+    assert.strictEqual(save([bullets(item(text("Word ")), item(text("Next")))]), "- Word \n- Next")
+    assert.strictEqual(save([paragraph(text("Word ")), after]), "Word \n\nAfter")
+
+    const saved: [string, object[], string][] = [
+      ["a space ending a heading", [heading(text("Title ")), after], "## Title\n\nAfter"],
+      ["a space starting a heading", [heading(text(" Title")), after], "## Title\n\nAfter"],
+      [
+        "a space ending a numbered item",
+        [numbers(item(text("Word ")), item(text("Next")))],
+        "1. Word\n2. Next",
+      ],
+      [
+        "a space starting a bullet item",
+        [bullets(item(text(" Word")), item(text("Next")))],
+        "- Word\n- Next",
+      ],
+      [
+        "a tab ending a bullet item",
+        [bullets(item(text("Word\t")), item(text("Next")))],
+        "- Word\n- Next",
+      ],
+      ["a space ending the last bullet item", [bullets(item(text("Word ")))], "- Word"],
+      [
+        "a space before a line break",
+        [paragraph(text("Word "), hardBreak, text("more")), after],
+        "Word\nmore\n\nAfter",
+      ],
+      [
+        "a bold space ending a heading",
+        [heading(text("Title"), text(" ", { type: "bold" })), after],
+        "## Title\n\nAfter",
+      ],
+    ]
+    for (const [name, content, expected] of saved) assert.strictEqual(save(content), expected, name)
+
+    // Spaces that show are kept, so the save stays refused.
+    const refused: [string, object[]][] = [
+      [
+        "inline code on a space ending a heading",
+        [heading(text("Title"), text(" ", { type: "code" })), after],
+      ],
+      [
+        "strike on a space ending a list item",
+        [bullets(item(text("Word"), text(" ", { type: "strike" })), item(text("Next")))],
+      ],
+    ]
+    for (const [name, content] of refused) assert.strictEqual(save(content), undefined, name)
+  })
 })

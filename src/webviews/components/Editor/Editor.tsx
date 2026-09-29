@@ -510,9 +510,13 @@ function ValidatedEditor(props: EditorProps) {
           return
         }
 
-        pendingExternalRef.current = null
-        lastEmittedValueRef.current = updatedInspection.markdown
-        onChangeRef.current?.(updatedInspection.markdown)
+        // A keystroke that changes nothing Markdown keeps, such as a space ending a heading, is not
+        // an edit: don't save it again, and don't drop an update from Linear waiting for blur.
+        if (updatedInspection.markdown !== lastEmittedValueRef.current) {
+          pendingExternalRef.current = null
+          lastEmittedValueRef.current = updatedInspection.markdown
+          onChangeRef.current?.(updatedInspection.markdown)
+        }
         reportValidity(true)
       },
       editable,

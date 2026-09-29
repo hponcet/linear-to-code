@@ -288,3 +288,27 @@ test("an empty line at the end of the description keeps Create Issue enabled", a
   expect(create.fields).toMatchObject({ description: "# Heading\n\nFirst line" })
   await harness.assertClean()
 })
+
+test("a space at the end of a heading or a list item keeps Create Issue enabled", async ({
+  page,
+}) => {
+  const harness = await openCreateIssue(page)
+  const createButton = page.getByRole("button", { name: "Create Issue" })
+
+  await page.getByRole("textbox", { name: "Issue title" }).fill("Edge spaces")
+  await page.getByRole("textbox", { name: "Issue description" }).click()
+  // Markdown drops spaces at the end of a heading or a list item: they must not block the save.
+  await page.keyboard.type("## Title ")
+  await expect(createButton).toBeEnabled()
+  await page.keyboard.press("Enter")
+  await page.keyboard.type("- first ")
+  await page.keyboard.press("Enter")
+  await page.keyboard.type("second ")
+  await expect(createButton).toBeEnabled()
+
+  await createButton.click()
+  await expect.poll(harness.flow).toEqual(["createIssue", "openIssue", "closePanel"])
+  const [create] = await harness.requests("createIssue")
+  expect(create.fields).toMatchObject({ description: "## Title\n\n- first\n- second" })
+  await harness.assertClean()
+})

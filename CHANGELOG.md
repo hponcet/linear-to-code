@@ -24,6 +24,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Focusing the labels picker no longer draws an outline around its search field.
 - A space at the start or end of a table cell no longer disables Create Issue or blocks saving a description. The space is dropped on save, since Markdown tables can't keep it.
 - An empty line or line break at the end of a description (after a heading or a checklist, a line of spaces, an empty heading, or Shift+Enter) no longer disables Create Issue or pauses description saving. It is dropped on save, since Markdown can't keep it.
+- A space at the start or end of a heading or a list item, or just before a Shift+Enter line break, no longer disables Create Issue or pauses description saving. It is dropped on save, since Markdown can't keep it.
 - Switching or reconnecting a Linear workspace no longer logs `NoTreeViewError` for the Issues view.
 - Connect to Linear no longer fails with "command 'linearToCode.commands.refreshPullRequests' already exists" when a previous connection attempt failed while loading pull requests.
 

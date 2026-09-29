@@ -1070,9 +1070,39 @@ export function trimDocumentEnd(document: JSONContent): JSONContent {
 }
 
 /**
+ * Markdown can't keep spaces at the end of a line, nor at the start of a heading or a list item.
+ * They are invisible, so they can be dropped when that is the only thing refusing a save. Spaces
+ * that show (inline code, links, strike) are never dropped.
+ */
+function trimLineEdges(node: JSONContent, parent?: JSONContent): JSONContent {
+  if (!isTextblock(node)) {
+    return node.content
+      ? { ...node, content: node.content.map((child) => trimLineEdges(child, node)) }
+      : node
+  }
+
+  const trimsStart =
+    node.type === "heading" || parent?.type === "listItem" || parent?.type === "taskItem"
+  const content = (node.content ?? []).map((child, index, siblings) => {
+    if (!hidesSpaces(child)) return child
+    let text = child.text ?? ""
+    if (trimsStart && index === 0) text = text.replace(/^[ \t\u00a0]+/, "")
+    const next = siblings[index + 1]
+    if (!next || next.type === "hardBreak") text = text.replace(/[ \t\u00a0]+$/, "")
+    return { ...child, text }
+  })
+  const kept = content.filter((child) => child.type !== "text" || child.text)
+  const { content: _, ...rest } = node
+  return kept.length ? { ...rest, content: kept } : rest
+}
+
+// Everything Markdown can't keep and nobody can see: edge spaces and the emptiness ending a document.
+const withoutUnsavable = (document: JSONContent) => trimDocumentEnd(trimLineEdges(document))
+
+/**
  * The Markdown to save for an editor document, or undefined when saving it would change what the
- * user sees. When the document itself can't be saved, it is retried without the empty lines and
- * line breaks that end it.
+ * user sees. When the document itself can't be saved, it is retried without the invisible spaces,
+ * empty lines and line breaks that Markdown can't keep.
  */
 export function inspectEditorDocument(
   document: JSONContent,
@@ -1087,5 +1117,5 @@ export function inspectEditorDocument(
       ? inspection
       : undefined
   }
-  return save(document, (parsed) => parsed) ?? save(trimDocumentEnd(document), trimDocumentEnd)
+  return save(document, (parsed) => parsed) ?? save(withoutUnsavable(document), withoutUnsavable)
 }
