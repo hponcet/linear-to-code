@@ -11,6 +11,7 @@ import type { Locator, Page } from "@playwright/test"
 const SELECT_ALL = process.platform === "darwin" ? "Meta+A" : "Control+A"
 const UNDO = process.platform === "darwin" ? "Meta+Z" : "Control+Z"
 const REDO = process.platform === "darwin" ? "Meta+Shift+Z" : "Control+Shift+Z"
+const DOCUMENT_END = process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End"
 
 async function expectDescription(
   page: Page,
@@ -316,8 +317,10 @@ test("renders, edits, deletes, and recreates a Mermaid diagram", async ({ page }
   await expect(code).toBeVisible()
   await expect(page.getByRole("img", { name: "Mermaid diagram" })).toBeHidden()
 
+  // A click in the middle of a multi-line source can land on any line. The source is the whole
+  // description, so the end of the document is the end of the source.
   await code.click()
-  await page.keyboard.press("End")
+  await page.keyboard.press(DOCUMENT_END)
   await page.keyboard.insertText(" --> C")
   let updateCount = await expectDescription(page, 0, edited)
 
@@ -356,8 +359,10 @@ test("keeps invalid Mermaid source editable through edit, delete, and recreation
   await expect(page.locator('body > [id^="dlinear-mermaid-"]')).toHaveCount(0)
   await expect(page.getByText("Syntax error in text")).toHaveCount(0)
 
+  // A click in the middle of a multi-line source can land on any line. The source is the whole
+  // description, so the end of the document is the end of the source.
   await code.click()
-  await page.keyboard.press("End")
+  await page.keyboard.press(DOCUMENT_END)
   await page.keyboard.insertText(" B")
   let updateCount = await expectDescription(page, 0, edited)
   await page.getByRole("button", { name: "View diagram" }).click()
