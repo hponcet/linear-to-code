@@ -4,6 +4,21 @@ All notable changes to the "linear-to-code" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+### Added
+
+- Added `Cmd+K Cmd+L` (`Ctrl+K Ctrl+L`) as an alternative shortcut for Search Linear Issues, matching `Cmd+K Cmd+I` for the current branch issue.
+
+### Changed
+
+- New workspaces now start on My issues in the current cycle instead of loading every issue in the workspace. An explicit All issues or any-cycle choice is still remembered.
+- In Cursor, keyboard shortcuts now use `Cmd+R` (`Ctrl+R`) instead of `Cmd+K` (`Ctrl+K`), following Cursor's chord prefix and no longer blocking Cursor's inline edit. VS Code keeps `Cmd+K` (`Ctrl+K`).
+
+### Fixed
+
+- Connect to Linear no longer fails with "command 'linearToCode.commands.refreshPullRequests' already exists" when a previous connection attempt failed while loading pull requests.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added

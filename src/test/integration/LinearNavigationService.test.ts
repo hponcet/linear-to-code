@@ -3,8 +3,15 @@ import * as assert from "assert"
 import { LinearClient } from "@linear/sdk"
 
 import { LinearService } from "../../linear/LinearService"
-import { defaultNavigationFilters } from "../../linear/navigation"
+import { defaultNavigationFilters, NavigationFilters } from "../../linear/navigation"
 import { createLinearConnection } from "../support/linearConnection"
+
+/** The unfiltered workspace view, which these tests use as their neutral starting point. */
+const allIssuesFilters = (): NavigationFilters => ({
+  ...defaultNavigationFilters(),
+  view: "allIssues",
+  cycle: "any",
+})
 
 suite("Linear navigation API", () => {
   test("loads 100 issues per page and invalidates every page after membership changes", async () => {
@@ -24,7 +31,7 @@ suite("Linear navigation API", () => {
         }) as unknown as LinearClient,
     )
     const filters = {
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       projectId: "project",
       assigneeIds: ["alice", "bob"],
     }

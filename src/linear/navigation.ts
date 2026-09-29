@@ -14,8 +14,9 @@ export type NavigationFilters = {
   assigneeIds: string[]
 }
 
+/** A fresh workspace starts on the user's own issues in the current cycle, not the whole workspace. */
 export function defaultNavigationFilters(): NavigationFilters {
-  return { view: "allIssues", cycle: "any", stateIds: [], assigneeIds: [] }
+  return { view: "myIssues", cycle: "current", stateIds: [], assigneeIds: [] }
 }
 
 /** Restore only recognized values from editor storage, then check access against metadata. */
@@ -26,8 +27,9 @@ export function restoreNavigationFilters(value: unknown): NavigationFilters {
   if (typeof stored.teamId === "string") filters.teamId = stored.teamId
   if (stored.projectId === null || typeof stored.projectId === "string")
     filters.projectId = stored.projectId
-  if (stored.view === "myIssues") filters.view = stored.view
-  if (stored.cycle === "current" || stored.cycle === "none") filters.cycle = stored.cycle
+  if (stored.view === "allIssues" || stored.view === "myIssues") filters.view = stored.view
+  if (stored.cycle === "any" || stored.cycle === "current" || stored.cycle === "none")
+    filters.cycle = stored.cycle
   else if (stored.cycle && typeof stored.cycle === "object" && typeof stored.cycle.id === "string")
     filters.cycle = { id: stored.cycle.id }
   if (Array.isArray(stored.stateIds))

@@ -4,10 +4,18 @@ import { UNASSIGNED_ASSIGNEE_ID } from "../../constants"
 import {
   buildNavigationIssueFilter,
   defaultNavigationFilters,
+  NavigationFilters,
   NavigationMetadata,
   normalizeNavigationFilters,
   restoreNavigationFilters,
 } from "../../linear/navigation"
+
+/** The unfiltered workspace view, which these tests use as their neutral starting point. */
+const allIssuesFilters = (): NavigationFilters => ({
+  ...defaultNavigationFilters(),
+  view: "allIssues",
+  cycle: "any",
+})
 
 export const navigationMetadata: NavigationMetadata = {
   teams: [
@@ -48,8 +56,11 @@ export const navigationMetadata: NavigationMetadata = {
 }
 
 suite("Linear navigation filters", () => {
-  test("defaults to all issues and composes every API filter", () => {
-    assert.deepStrictEqual(buildNavigationIssueFilter(defaultNavigationFilters(), "me"), {})
+  test("defaults to my issues in the current cycle and composes every API filter", () => {
+    assert.deepStrictEqual(buildNavigationIssueFilter(defaultNavigationFilters(), "me"), {
+      assignee: { id: { eq: "me" } },
+      cycle: { isActive: { eq: true } },
+    })
     assert.deepStrictEqual(
       buildNavigationIssueFilter(
         {
@@ -71,21 +82,18 @@ suite("Linear navigation filters", () => {
       },
     )
     assert.deepStrictEqual(
-      buildNavigationIssueFilter(
-        { ...defaultNavigationFilters(), projectId: null, cycle: "none" },
-        "me",
-      ),
+      buildNavigationIssueFilter({ ...allIssuesFilters(), projectId: null, cycle: "none" }, "me"),
       { project: { null: true }, cycle: { null: true } },
     )
     assert.deepStrictEqual(
-      buildNavigationIssueFilter({ ...defaultNavigationFilters(), cycle: { id: "cycle" } }, "me"),
+      buildNavigationIssueFilter({ ...allIssuesFilters(), cycle: { id: "cycle" } }, "me"),
       { cycle: { id: { eq: "cycle" } } },
     )
   })
 
   test("combines multiple assignees with other filters and keeps My issues exclusive", () => {
     const filters = {
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       teamId: "team",
       projectId: "shared",
       cycle: "none" as const,
@@ -108,7 +116,7 @@ suite("Linear navigation filters", () => {
 
   test("filters unassigned tickets alone or alongside users without sending the marker as a user ID", () => {
     const filters = {
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       assigneeIds: [UNASSIGNED_ASSIGNEE_ID],
       projectId: "shared",
     }
@@ -137,7 +145,7 @@ suite("Linear navigation filters", () => {
 
   test("keeps cross-team projects and clears incompatible or inaccessible filters", () => {
     const filters = {
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       projectId: "shared",
       stateIds: ["todo", "design-todo", "removed"],
       cycle: { id: "cycle" },
@@ -194,5 +202,11 @@ suite("Linear navigation filters", () => {
       }),
       { ...defaultNavigationFilters(), view: "myIssues", stateIds: ["todo"], projectId: null },
     )
+    // An explicit choice of the whole workspace survives a restart instead of reverting to the default.
+    assert.deepStrictEqual(restoreNavigationFilters({ view: "allIssues", cycle: "any" }), {
+      ...defaultNavigationFilters(),
+      view: "allIssues",
+      cycle: "any",
+    })
   })
 })

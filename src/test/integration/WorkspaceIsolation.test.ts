@@ -5,7 +5,11 @@ import { commands, ExtensionContext, QuickPickItem, QuickPickOptions, window } f
 import { Commands, UNASSIGNED_ASSIGNEE_ID } from "../../constants"
 import { Controller } from "../../controller"
 import * as auth from "../../linear/auth"
-import { defaultNavigationFilters, NavigationMetadata } from "../../linear/navigation"
+import {
+  defaultNavigationFilters,
+  NavigationFilters,
+  NavigationMetadata,
+} from "../../linear/navigation"
 import {
   buildLinearMcpServerEnv,
   createCursorMcpServerConfig,
@@ -17,6 +21,13 @@ import { MyIssuesView } from "../../views/myIssues/MyIssuesView"
 import { Issue, WorkflowState } from "../../views/myIssues/types"
 import { NavigationView } from "../../views/NavigationView"
 import { memoryState, workspaceHarness } from "../support/linearWorkspaces"
+
+/** The unfiltered workspace view, which these tests use as their neutral starting point. */
+const allIssuesFilters = (): NavigationFilters => ({
+  ...defaultNavigationFilters(),
+  view: "allIssues",
+  cycle: "any",
+})
 
 const metadata: NavigationMetadata = {
   teams: [{ id: "team", name: "Team" }],
@@ -77,7 +88,7 @@ suite("Workspace isolation", () => {
     const current = view(context(), "a")
     const cursors: (string | undefined)[] = []
     const counts: number[] = []
-    const filters = { ...defaultNavigationFilters(), view: "myIssues" as const, stateIds: ["todo"] }
+    const filters = { ...allIssuesFilters(), view: "myIssues" as const, stateIds: ["todo"] }
     Object.assign(current.service, {
       getNavigationIssues: async (selected: typeof filters, after?: string) => {
         assert.deepStrictEqual(selected, current.filters)
@@ -123,7 +134,7 @@ suite("Workspace isolation", () => {
         return { issues: [{ id: "first", stateId: "todo" } as Issue], nextCursor: "second" }
       },
     })
-    await current.setFilters(defaultNavigationFilters())
+    await current.setFilters(allIssuesFilters())
     assert.deepStrictEqual(
       (current.getChildren(state) as Issue[]).map(({ id }) => id),
       ["first"],
@@ -192,7 +203,7 @@ suite("Workspace isolation", () => {
       Object.assign(current.service, {
         getNavigationIssues: async () => ({ issues: previous }),
       })
-      await current.setFilters(defaultNavigationFilters())
+      await current.setFilters(allIssuesFilters())
       Object.assign(current.service, {
         getNavigationIssues: async (_filters: unknown, after?: string) => {
           if (failedPage === "first" || after) throw new Error("Refresh unavailable")
@@ -234,9 +245,9 @@ suite("Workspace isolation", () => {
         return { issues: [{ id: "fresh", __key: "issue", stateId: "todo" } as Issue] }
       },
     })
-    const old = current.setFilters(defaultNavigationFilters())
+    const old = current.setFilters(allIssuesFilters())
     await startedPromise
-    await current.setFilters({ ...defaultNavigationFilters(), view: "myIssues" })
+    await current.setFilters({ ...allIssuesFilters(), view: "myIssues" })
     release({ issues: [{ id: "stale", stateId: "todo" } as Issue], nextCursor: "third" })
     await old
     assert.deepStrictEqual(
@@ -268,7 +279,7 @@ suite("Workspace isolation", () => {
         issues: visible ? [{ id: "issue-a", stateId: "todo" } as Issue] : [],
       }),
     })
-    await current.setFilters(defaultNavigationFilters())
+    await current.setFilters(allIssuesFilters())
     assert.strictEqual((current.getChildren(state) as Issue[]).length, 1)
     visible = false
     await current.issuesActions.updateIssue("issue-a")
@@ -315,16 +326,16 @@ suite("Workspace isolation", () => {
     await firstWindow.workspaceState.update(auth.ACTIVE_WORKSPACE_KEY, "a")
     await secondWindow.workspaceState.update(auth.ACTIVE_WORKSPACE_KEY, "b")
     await view(firstWindow, "a").setFilters({
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       view: "myIssues",
       cycle: "none",
     })
     await view(firstWindow, "b").setFilters({
-      ...defaultNavigationFilters(),
+      ...allIssuesFilters(),
       stateIds: ["todo"],
       assigneeIds: ["alice", "bob"],
     })
-    await view(secondWindow, "a").setFilters(defaultNavigationFilters())
+    await view(secondWindow, "a").setFilters(allIssuesFilters())
     assert.strictEqual(view(firstWindow, "a").filters.view, "myIssues")
     assert.deepStrictEqual(view(firstWindow, "b").filters.stateIds, ["todo"])
     assert.deepStrictEqual(view(firstWindow, "b").filters.assigneeIds, ["alice", "bob"])
@@ -343,7 +354,7 @@ suite("Workspace isolation", () => {
       ...metadata,
       users: [...metadata.users, { id: "user-a", name: "Me", email: "me@example.com" }],
     }
-    current.filters.view = "myIssues"
+    current.filters = { ...allIssuesFilters(), view: "myIssues" }
     Object.assign(current.service, { getNavigationIssues: async () => ({ issues: [] }) })
     const originalViewer = Object.getOwnPropertyDescriptor(Controller, "issueViewer")!
     const originalActiveWorkspace = auth.getActiveWorkspaceId

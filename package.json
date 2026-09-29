@@ -433,19 +433,51 @@
     "keybindings": [
       {
         "command": "linearToCode.commands.openCurrentBranchIssue",
-        "key": "ctrl+k i",
-        "mac": "cmd+k i"
+        "key": "ctrl+k b",
+        "mac": "cmd+k b",
+        "when": "!linearToCode:isCursor"
       },
       {
         "command": "linearToCode.commands.openCurrentBranchIssue",
-        "key": "ctrl+k ctrl+i",
-        "mac": "cmd+k cmd+i"
+        "key": "ctrl+k ctrl+b",
+        "mac": "cmd+k cmd+b",
+        "when": "!linearToCode:isCursor"
       },
       {
         "command": "linearToCode.commands.searchIssues",
-        "key": "ctrl+k l",
-        "mac": "cmd+k l",
-        "when": "linearToCode:isLinearAuthenticated"
+        "key": "ctrl+k s",
+        "mac": "cmd+k s",
+        "when": "linearToCode:isLinearAuthenticated && !linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.searchIssues",
+        "key": "ctrl+k ctrl+s",
+        "mac": "cmd+k cmd+s",
+        "when": "linearToCode:isLinearAuthenticated && !linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.openCurrentBranchIssue",
+        "key": "ctrl+r b",
+        "mac": "cmd+r b",
+        "when": "linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.openCurrentBranchIssue",
+        "key": "ctrl+r ctrl+b",
+        "mac": "cmd+r cmd+b",
+        "when": "linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.searchIssues",
+        "key": "ctrl+r s",
+        "mac": "cmd+r s",
+        "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.searchIssues",
+        "key": "ctrl+r ctrl+s",
+        "mac": "cmd+r cmd+s",
+        "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor"
       }
     ]
   },

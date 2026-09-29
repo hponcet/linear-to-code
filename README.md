@@ -58,7 +58,7 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 1. Open **Linear to Code** in the activity bar
 2. Run **Connect to Linear** if you are not authenticated
 3. Select a workspace, **All teams** or a team, and **All projects**, **No project**, or a project in the navigation header
-4. Choose **All issues** (the default) or **My issues**. Open **Filters** for a current, specific, or missing cycle, multiple statuses, or **Assignees**. Search assignees by name or email and select one or more people to show tickets assigned to any of them. Confirming the assignee picker switches to **All issues**; choosing **My issues** clears custom assignees. Leave the selection empty to include all assignees. Remove individual filter chips to broaden the list
+4. A new workspace starts on **My issues** in the current cycle. Choose **All issues** or **My issues**, and open **Filters** for a current, specific, or missing cycle, multiple statuses, or **Assignees**. Search assignees by name or email and select one or more people to show tickets assigned to any of them. Confirming the assignee picker switches to **All issues**; choosing **My issues** clears custom assignees. Leave the selection empty to include all assignees. Remove individual filter chips to broaden the list
 5. The native issue tree automatically loads every matching issue in batches of 100. Tickets appear as each page arrives; the tree indicates loading progress until the full list is available
 
 Each selector opens the editor's searchable, keyboard-accessible Quick Pick. Selecting a team limits the available projects; **All teams** includes cross-team projects. Cycle and status choices follow the selected team's or project's teams. Refresh reloads accessible data and removes filters that no longer apply. Initiatives, milestones, and workflow configuration are outside this navigation.
@@ -93,10 +93,12 @@ When a git provider is connected for the current repository:
 
 ### Keyboard shortcuts
 
-| Shortcut                                 | Command                       | Description                                         |
-| ---------------------------------------- | ----------------------------- | --------------------------------------------------- |
-| `Cmd+K I` (Mac) / `Ctrl+K I` (Win/Linux) | Open Issue for Current Branch | Open the Linear issue for the current Git branch    |
-| `Cmd+K L` (Mac) / `Ctrl+K L` (Win/Linux) | Search Linear Issues          | Search all issues in the connected Linear workspace |
+| Shortcut                                                                     | Command                       | Description                                         |
+| ---------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------- |
+| `Cmd+K I` or `Cmd+K Cmd+I` (Mac) / `Ctrl+K I` or `Ctrl+K Ctrl+I` (Win/Linux) | Open Issue for Current Branch | Open the Linear issue for the current Git branch    |
+| `Cmd+K L` or `Cmd+K Cmd+L` (Mac) / `Ctrl+K L` or `Ctrl+K Ctrl+L` (Win/Linux) | Search Linear Issues          | Search all issues in the connected Linear workspace |
+
+In Cursor, these shortcuts start with `Cmd+R` (Mac) / `Ctrl+R` (Win/Linux) instead, following Cursor's chord prefix and leaving `Cmd+K` / `Ctrl+K` to Cursor's inline edit. For example, use `Cmd+R L` to search Linear issues.
 
 ### Commands (selection)
 

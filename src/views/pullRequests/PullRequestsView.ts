@@ -85,8 +85,6 @@ export class PullRequestsView implements TreeDataProvider<PullRequestTreeNode> {
     ]
 
     this.#disposables.push(...commandDisposables)
-
-    await this.refresh()
   }
 
   public refresh(): Promise<void> {
