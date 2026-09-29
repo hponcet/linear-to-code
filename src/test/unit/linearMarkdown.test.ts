@@ -9,6 +9,7 @@ import { StarterKit } from "@tiptap/starter-kit"
 import {
   createLinearMarkdownExtensions,
   getCanonicalLinearMarkdown,
+  inspectEditorDocument,
   inspectLinearMarkdown,
   trimDocumentEnd,
   trimTableCellWhitespace,
@@ -715,15 +716,42 @@ suite("video Markdown detection", () => {
     }
   })
 
-  test("empty lines and line breaks at the end match the description they save as", () => {
+  test("an editor document ending with empty lines or line breaks saves without them", () => {
     const extensions = createLinearMarkdownExtensions()
     const schema = getSchema(extensions)
-    const text = (value: string) => ({ type: "text", text: value })
+    const manager = new MarkdownManager({ extensions })
+    const toDocument = (content: object[]) =>
+      schema.nodeFromJSON({ type: "doc", content }).toJSON() as JSONContent
+    const save = (content: object[]) =>
+      inspectEditorDocument(
+        toDocument(content),
+        (document) => manager.serialize(document),
+        extensions,
+      )?.markdown
+    const text = (value: string, ...marks: object[]) =>
+      marks.length ? { type: "text", text: value, marks } : { type: "text", text: value }
     const paragraph = (...content: object[]) =>
       content.length ? { type: "paragraph", content } : { type: "paragraph" }
     const heading = (...content: object[]) => ({ type: "heading", attrs: { level: 1 }, content })
     const hardBreak = { type: "hardBreak" }
-    const cases: [string, object[], string][] = [
+    const link = { type: "link", attrs: { href: "https://example.com" } }
+    // A Unicode space character with a visible glyph.
+    const ogham = String.fromCodePoint(0x1680)
+    const table = (...cell: object[]) => ({
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [{ type: "tableHeader", content: [paragraph(text("Name"))] }],
+        },
+        { type: "tableRow", content: [{ type: "tableCell", content: [paragraph(...cell)] }] },
+      ],
+    })
+
+    // A document that could already be saved keeps exactly the same Markdown.
+    assert.strictEqual(save([paragraph(text("First line")), paragraph()]), "First line\n\n")
+
+    const saved: [string, object[], string][] = [
       ["an empty line after a heading", [heading(text("Title")), paragraph()], "# Title"],
       [
         "two empty lines after a heading",
@@ -734,6 +762,11 @@ suite("video Markdown detection", () => {
       ["a trailing line break", [paragraph(text("Line"), hardBreak, hardBreak)], "Line"],
       ["a heading line break", [heading(text("Title"), hardBreak)], "# Title"],
       ["a line of spaces", [paragraph(text("Line")), paragraph(text("   "))], "Line"],
+      [
+        "a line of bold spaces",
+        [paragraph(text("Line")), paragraph(text("  ", { type: "bold" }))],
+        "Line",
+      ],
       ["a line break then spaces", [paragraph(text("Line"), hardBreak, text("  "))], "Line"],
       ["an empty heading", [paragraph(text("Line")), heading()], "Line"],
       [
@@ -747,35 +780,22 @@ suite("video Markdown detection", () => {
         "- Item",
       ],
     ]
-    const toDocument = (content: object[]) =>
-      schema.nodeFromJSON({ type: "doc", content }).toJSON() as JSONContent
+    for (const [name, content, expected] of saved) assert.strictEqual(save(content), expected, name)
 
-    for (const [name, content, expected] of cases) {
-      const editorDocument = trimDocumentEnd(toDocument(content))
-      const markdown = new MarkdownManager({ extensions }).serialize(editorDocument)
-      const inspection = inspectLinearMarkdown(markdown, extensions)
-
-      assert.strictEqual(inspection.ok, true, name)
-      if (inspection.ok) {
-        assert.strictEqual(inspection.markdown, expected, name)
-        assert.deepStrictEqual(trimDocumentEnd(inspection.document), editorDocument, name)
-      }
-    }
-
-    // Visible content is kept, so a save that would drop it stays blocked: an empty line between
-    // blocks, spaces that show because of a mark, and space characters that have a glyph.
-    const kept: object[][] = [
-      [heading(text("Title")), paragraph(), paragraph(text("A"))],
-      [paragraph(text("Line")), paragraph({ type: "text", text: " ", marks: [{ type: "code" }] })],
+    // Refused rather than saved without something the user can see.
+    const refused: [string, object[]][] = [
+      ["an empty line between blocks", [heading(text("Title")), paragraph(), paragraph(text("A"))]],
       [
-        paragraph(text("Line")),
-        paragraph({ type: "text", text: " ", marks: [{ type: "strike" }] }),
+        "inline code on a space at the end",
+        [paragraph(text("Line")), paragraph(text(" ", { type: "code" }))],
       ],
-      [paragraph(text("Line")), paragraph(text("\u1680"))],
+      ["a link on a space in a table cell", [table(text(" ", link))]],
+      ["a link on a space ending the last cell", [table(text(" ", link), hardBreak)]],
+      ["a glyph space at the edge of a table cell", [table(text(`A${ogham}`))]],
     ]
-    for (const content of kept) {
-      const document = toDocument(content)
-      assert.deepStrictEqual(trimDocumentEnd(document), document)
-    }
+    for (const [name, content] of refused) assert.strictEqual(save(content), undefined, name)
+
+    const glyphLine = toDocument([paragraph(text("Line")), paragraph(text(ogham))])
+    assert.deepStrictEqual(trimDocumentEnd(glyphLine), glyphLine)
   })
 })

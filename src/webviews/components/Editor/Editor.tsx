@@ -24,8 +24,8 @@ import { useEditorThemeClass } from "src/webviews/hooks/useVsCodeTheme"
 
 import {
   createLinearMarkdownExtensions,
+  inspectEditorDocument,
   inspectLinearMarkdown,
-  trimDocumentEnd,
   trimTableCellWhitespace,
 } from "./linearMarkdown"
 import { Audio } from "./markdownPlugins/AudioPlugin"
@@ -500,23 +500,12 @@ function ValidatedEditor(props: EditorProps) {
           return
         }
 
-        const current = currentEditor.getJSON()
-        let updatedInspection = inspectLinearMarkdown(
-          currentEditor.getMarkdown(),
+        const updatedInspection = inspectEditorDocument(
+          currentEditor.getJSON(),
+          (document) => currentEditor.markdown!.serialize(document),
           contentExtensions,
         )
-        let valid = updatedInspection.ok && documentsMatch(current, updatedInspection.document)
-        if (!valid) {
-          // Some empty lines and line breaks at the very end can't be saved in Markdown. They carry
-          // nothing, so save without them instead of blocking.
-          const trimmed = trimDocumentEnd(current)
-          const markdown = currentEditor.markdown!.serialize(trimmed)
-          updatedInspection = inspectLinearMarkdown(markdown, contentExtensions)
-          valid =
-            updatedInspection.ok &&
-            documentsMatch(trimmed, trimDocumentEnd(updatedInspection.document))
-        }
-        if (!valid || !updatedInspection.ok) {
+        if (!updatedInspection) {
           reportValidity(false)
           return
         }

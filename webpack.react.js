@@ -55,6 +55,7 @@ module.exports = {
       : undefined,
     splitChunks: {
       chunks: "async",
+      maxAsyncSize: 500_000,
     },
   },
   externals: ["utf-8-validate", "bufferutil", "vscode"],
@@ -82,8 +83,9 @@ module.exports = {
       filename: "[name].css",
       ignoreOrder: true,
     }),
+    // moment's dynamic locale require bundles every locale; the webviews only use English.
     new webpack.IgnorePlugin({
-      resourceRegExp: /iconv-loader\.js/,
+      resourceRegExp: /^\.\/locale$/,
       contextRegExp: /moment$/,
     }),
     new webpack.WatchIgnorePlugin({

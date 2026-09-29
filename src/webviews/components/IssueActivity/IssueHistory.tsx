@@ -1,8 +1,8 @@
-import moment from "moment"
 import { Fragment, useState } from "react"
 import { Animation } from "rsuite"
 import { useIssueContext } from "src/webviews/contexts/IssueContext"
 import { History } from "src/webviews/utils/history"
+import moment from "src/webviews/utils/moment"
 
 import { getActivity, getAllHistoryTypes, getHistoryType } from "../InlineIssue/historyUtils"
 import { UserAvatar } from "../UserAvatar/UserAvatar"

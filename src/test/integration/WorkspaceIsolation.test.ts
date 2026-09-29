@@ -1,6 +1,13 @@
 import * as assert from "assert"
 
-import { commands, ExtensionContext, QuickPickItem, QuickPickOptions, window } from "vscode"
+import {
+  commands,
+  ExtensionContext,
+  QuickPickItem,
+  QuickPickOptions,
+  WebviewPanel,
+  window,
+} from "vscode"
 
 import { Commands, UNASSIGNED_ASSIGNEE_ID } from "../../constants"
 import { Controller } from "../../controller"
@@ -15,8 +22,10 @@ import {
   createCursorMcpServerConfig,
   workspaceMcpName,
 } from "../../mcp/mcpEnvBuilder"
+import { AbstractWebview } from "../../panels/AbstractWebview"
 import { IssueWebview } from "../../panels/IssueWebview"
 import { StartWorkWebview } from "../../panels/StartWorkWebview"
+import { Resources } from "../../resources"
 import { MyIssuesView } from "../../views/myIssues/MyIssuesView"
 import { Issue, WorkflowState } from "../../views/myIssues/types"
 import { NavigationView } from "../../views/NavigationView"
@@ -512,6 +521,30 @@ suite("Workspace isolation", () => {
       Object.defineProperty(Controller, "linearService", original)
       issuePanel.dispose()
       startWork.dispose()
+    }
+  })
+
+  test("opening an issue panel loads the issue in its workspace once, while the page boots", async () => {
+    const ctx = context()
+    const current = view(ctx, "a")
+    const panel = new IssueWebview(ctx, current.issuesActions, h.registry.get("a"))
+    Object.assign(panel, { postMessage: async () => true })
+    const originalCreateOrShow = AbstractWebview.prototype.createOrShow
+    const originalResources = Controller.resources
+    AbstractWebview.prototype.createOrShow = async () => ({}) as WebviewPanel
+    Controller.resources = { icons: new Map() } as Resources
+    try {
+      const issue = { id: "issue-a", teamId: "team" } as Issue
+      await panel.open(issue)
+      assert.deepStrictEqual(h.calls, [{ token: "a:original", operation: "read", id: "issue-a" }])
+
+      // The page's own request is served by the prefetch instead of reading the issue again.
+      await panel.onMessageReceived({ type: "getIssue", issueId: "issue-a" })
+      assert.strictEqual(h.calls.length, 1)
+    } finally {
+      AbstractWebview.prototype.createOrShow = originalCreateOrShow
+      Controller.resources = originalResources
+      panel.dispose()
     }
   })
 

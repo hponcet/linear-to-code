@@ -1,27 +1,28 @@
-import { Attachments } from "src/webviews/components/Attachments/Attachments"
-import { CommentInput } from "src/webviews/components/Comment/CommentInput"
 import { Container } from "src/webviews/components/Container/Container"
-import { IssueActivity } from "src/webviews/components/IssueActivity/IssueActivity"
 import { IssueLocation } from "src/webviews/components/IssueLocation/IssueLocation"
-import { Separator } from "src/webviews/components/Separator/Separator"
-import { SubIssues } from "src/webviews/components/SubIssues/SubIssues"
 import { IssueContextProvider } from "src/webviews/contexts/IssueContext"
 import { ModalsContextProvider } from "src/webviews/contexts/ModalsContext"
+import { useAsyncMemo } from "src/webviews/hooks/useAsyncMemo"
 import { useProps } from "src/webviews/hooks/useProps"
 import { IssueHeader } from "src/webviews/views/IssueWebview/IssueHeader"
 
-import { IssueContent } from "./IssueContent"
-
 import "./IssueWebview.scss"
+
+// The body carries the editor. It starts loading with the page and arrives while the issue is
+// fetched, so the page script stays small. It renders in a normal update, not through Suspense:
+// a Suspense retry renders concurrently, and Tiptap destroys an editor not mounted within 1 ms.
+const issueBodyModule = import("./IssueBody")
 
 export default function IssueWebview() {
   const [props, loaded] = useProps<"issue">()
+  const [issueBody] = useAsyncMemo(() => issueBodyModule, [])
   const { issueId, connection } = props
 
   if (!issueId || !connection) {
     return <Container loading={true} />
   }
 
+  const IssueBody = issueBody?.IssueBody
   return (
     <IssueContextProvider
       key={issueId}
@@ -30,18 +31,15 @@ export default function IssueWebview() {
       connection={connection}
     >
       <ModalsContextProvider>
-        <Container>
-          <IssueLocation />
-          <IssueHeader />
-          <div className="issueBody">
-            <IssueContent />
-            <SubIssues />
-            <Attachments />
-            <Separator />
-            <IssueActivity />
-            <CommentInput />
-          </div>
-        </Container>
+        {IssueBody ? (
+          <Container>
+            <IssueLocation />
+            <IssueHeader />
+            <IssueBody />
+          </Container>
+        ) : (
+          <Container loading={true} />
+        )}
       </ModalsContextProvider>
     </IssueContextProvider>
   )

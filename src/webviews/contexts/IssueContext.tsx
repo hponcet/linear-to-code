@@ -12,7 +12,6 @@ import {
 } from "src/types/SerializedLinear"
 
 import { Container } from "../components/Container/Container"
-import { getCanonicalLinearMarkdown } from "../components/Editor/linearMarkdown"
 import { useAsyncEffect } from "../hooks/useAsyncEffect"
 import { useAsyncMemo } from "../hooks/useAsyncMemo"
 import { useIssueHistory } from "../hooks/useIssueHistory"
@@ -27,6 +26,12 @@ import {
 } from "../utils/issueEstimateByType"
 
 import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+
+// The Markdown engine comes with the editor chunk, so pages without an editor never load it.
+async function getCanonicalLinearMarkdown(source: string): Promise<string | undefined> {
+  const linearMarkdown = await import("../components/Editor/linearMarkdown")
+  return linearMarkdown.getCanonicalLinearMarkdown(source)
+}
 
 function normalizeAttachmentUrl(url: string): string {
   const trimmed = url.trim()
@@ -315,7 +320,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   ): Promise<SerializedIssue | undefined> {
     const fields = { ...updatedFields }
     if (typeof fields.description === "string") {
-      const description = getCanonicalLinearMarkdown(fields.description)
+      const description = await getCanonicalLinearMarkdown(fields.description)
       if (description === undefined) return undefined
       fields.description = description
     }
@@ -345,7 +350,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   }
 
   async function addComment(body: string) {
-    const markdown = getCanonicalLinearMarkdown(body)
+    const markdown = await getCanonicalLinearMarkdown(body)
     if (markdown === undefined) throw new Error("Refusing to save unsupported Linear Markdown")
     await panelActions.createComment({
       issueId: issueId,
@@ -355,7 +360,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   }
 
   async function updateComment(commentId: string, body: string) {
-    const markdown = getCanonicalLinearMarkdown(body)
+    const markdown = await getCanonicalLinearMarkdown(body)
     if (markdown === undefined) throw new Error("Refusing to save unsupported Linear Markdown")
     await panelActions.updateComment(commentId, markdown)
     setCommentRefetch((r) => r + 1)
@@ -367,7 +372,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   }
 
   async function sendCommentReply(commentId: string, body: string) {
-    const markdown = getCanonicalLinearMarkdown(body)
+    const markdown = await getCanonicalLinearMarkdown(body)
     if (markdown === undefined) throw new Error("Refusing to save unsupported Linear Markdown")
     await panelActions.createComment({
       parentId: commentId,
@@ -480,7 +485,7 @@ export function IssueContextProvider(props: IssueContextProviderProps) {
   ) {
     const canonicalFields = { ...fields }
     if (typeof canonicalFields.description === "string") {
-      const description = getCanonicalLinearMarkdown(canonicalFields.description)
+      const description = await getCanonicalLinearMarkdown(canonicalFields.description)
       if (description === undefined) {
         throw new Error("Refusing to save unsupported Linear Markdown")
       }

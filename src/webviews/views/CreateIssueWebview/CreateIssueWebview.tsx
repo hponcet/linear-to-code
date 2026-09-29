@@ -4,11 +4,11 @@ import { Props } from "src/types/ActionMessage"
 import { SerializedIssue } from "src/types/SerializedLinear"
 import { Button } from "src/webviews/components/Button/Button"
 import { Container } from "src/webviews/components/Container/Container"
-import { Editor } from "src/webviews/components/Editor/Editor"
 import { TeamIcon } from "src/webviews/components/Icons/TeamIcon"
 import { IssueLocation } from "src/webviews/components/IssueLocation/IssueLocation"
 import { IssueContextReact } from "src/webviews/contexts/IssueContext"
 import { useIssueFormContextValue } from "src/webviews/contexts/IssueFormContext"
+import { useAsyncMemo } from "src/webviews/hooks/useAsyncMemo"
 import { useProps } from "src/webviews/hooks/useProps"
 import { useLinearApi, vscApi } from "src/webviews/hooks/useRequestDataUpdate"
 import { IssueHeader } from "src/webviews/views/IssueWebview/IssueHeader"
@@ -18,12 +18,18 @@ import "../IssueWebview/IssueWebview.scss"
 
 import type { IssueUpdateFields } from "src/linear/LinearService"
 import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+import type { Editor as EditorComponent } from "src/webviews/components/Editor/Editor"
 
 type CreateIssueFormProps = Omit<Props["createIssue"], "connection"> & {
   connection: LinearWorkspace
+  Editor: typeof EditorComponent
 }
 
-function CreateIssueForm({ connection, teams, draft: initialDraft }: CreateIssueFormProps) {
+// The editor starts loading with the page, so the page script stays small. The form renders once
+// it's there, in a normal update rather than through Suspense (see IssueWebview).
+const editorModule = import("src/webviews/components/Editor/Editor")
+
+function CreateIssueForm({ connection, teams, draft: initialDraft, Editor }: CreateIssueFormProps) {
   const [draft, setDraft] = useState<IssueUpdateFields>({
     title: "",
     description: "",
@@ -153,10 +159,11 @@ function CreateIssueForm({ connection, teams, draft: initialDraft }: CreateIssue
 
 export default function CreateIssueWebview() {
   const [props, loaded] = useProps<"createIssue">()
+  const [editor] = useAsyncMemo(() => editorModule, [])
 
-  if (!loaded || !props.connection) {
+  if (!loaded || !props.connection || !editor) {
     return <Container loading={true} />
   }
 
-  return <CreateIssueForm {...props} connection={props.connection} />
+  return <CreateIssueForm {...props} connection={props.connection} Editor={editor.Editor} />
 }

@@ -1,9 +1,10 @@
-import moment from "moment"
 import { SerializedCycle } from "src/types/SerializedLinear"
 
 import { ProjectCycleIcon } from "./ProjectCycleIcon"
 
 import "./ProjectCycle.css"
+
+const cycleDateFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
 
 export type ProjectCycleProps = {
   projectCycle: SerializedCycle | null
@@ -27,9 +28,9 @@ export function ProjectCycle(props: ProjectCycleProps) {
 
   function getDateLabel() {
     if (projectCycle?.startsAt && projectCycle?.endsAt) {
-      return `${moment(projectCycle.startsAt).format("MMM D")} - ${moment(
-        projectCycle.endsAt,
-      ).format("MMM D")}`
+      return `${cycleDateFormat.format(new Date(projectCycle.startsAt))} - ${cycleDateFormat.format(
+        new Date(projectCycle.endsAt),
+      )}`
     }
     return null
   }

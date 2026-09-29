@@ -4,7 +4,6 @@ All notable changes to the "linear-to-code" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
 
 ## [0.4.0] - 2026-09-29
 
@@ -18,6 +17,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - New workspaces now start on My issues in the current cycle instead of loading every issue in the workspace. An explicit All issues or any-cycle choice is still remembered.
 - Open Issue for Current Branch now uses `Cmd+K B` or `Cmd+K Cmd+B` (`Ctrl+K B` or `Ctrl+K Ctrl+B`), and Search Linear Issues uses `Cmd+K S` or `Cmd+K Cmd+S` (`Ctrl+K S` or `Ctrl+K Ctrl+S`).
 - In Cursor, keyboard shortcuts now start with Cursor's chord prefix instead of `Cmd+K` (`Ctrl+K`): `Cmd+R` on Mac and `Ctrl+M` on Windows/Linux. They no longer block Cursor's inline edit. VS Code keeps `Cmd+K` (`Ctrl+K`).
+- Issue, Create Issue, Settings, Start Work, and navigation pages open faster. They load much less code up front, and an issue page starts fetching its data as soon as its tab opens.
 
 ### Fixed
 

@@ -994,6 +994,17 @@ export function getCanonicalLinearMarkdown(source: string): string | undefined {
 }
 
 /**
+ * Spaces are invisible in plain, bold or italic text. Inline code, links and strike show on spaces,
+ * and some Unicode space characters have a glyph, so those always count as content.
+ */
+function hidesSpaces(node: JSONContent | undefined): node is JSONContent {
+  return (
+    node?.type === "text" &&
+    (node.marks ?? []).every((mark) => mark.type === "bold" || mark.type === "italic")
+  )
+}
+
+/**
  * Markdown table cells can't keep leading or trailing spaces, so a cell such as "text " is saved
  * as "text". Trimming them lets the editor's document match what will be saved.
  */
@@ -1009,10 +1020,11 @@ export function trimTableCellWhitespace(document: JSONContent): JSONContent {
     content: document.content?.map((paragraph) => {
       const content = [...(paragraph.content ?? [])]
       const first = content[0]
-      if (first?.type === "text") content[0] = { ...first, text: first.text?.trimStart() }
+      if (hidesSpaces(first))
+        content[0] = { ...first, text: first.text?.replace(/^[ \t\u00a0]+/, "") }
       const last = content[content.length - 1]
-      if (last?.type === "text")
-        content[content.length - 1] = { ...last, text: last.text?.trimEnd() }
+      if (hidesSpaces(last))
+        content[content.length - 1] = { ...last, text: last.text?.replace(/[ \t\u00a0]+$/, "") }
       const trimmed = content.filter((node) => node.type !== "text" || node.text)
       const { content: _, ...rest } = paragraph
       return trimmed.length ? { ...rest, content: trimmed } : rest
@@ -1020,10 +1032,8 @@ export function trimTableCellWhitespace(document: JSONContent): JSONContent {
   }
 }
 
-// Only plain spaces are invisible: marked text (inline code, link, strike) shows even when blank.
 const isBlankInline = (node: JSONContent) =>
-  node.type === "hardBreak" ||
-  (node.type === "text" && !node.marks?.length && /^[ \t\u00a0]*$/.test(node.text ?? ""))
+  node.type === "hardBreak" || (hidesSpaces(node) && /^[ \t\u00a0]*$/.test(node.text ?? ""))
 
 const isTextblock = (node: JSONContent | undefined) =>
   node?.type === "paragraph" || node?.type === "heading"
@@ -1057,4 +1067,25 @@ export function trimDocumentEnd(document: JSONContent): JSONContent {
     content.pop()
   }
   return trimLastLine({ ...document, content })
+}
+
+/**
+ * The Markdown to save for an editor document, or undefined when saving it would change what the
+ * user sees. When the document itself can't be saved, it is retried without the empty lines and
+ * line breaks that end it.
+ */
+export function inspectEditorDocument(
+  document: JSONContent,
+  serialize: (document: JSONContent) => string,
+  extensions?: AnyExtension[],
+) {
+  const save = (candidate: JSONContent, normalize: (parsed: JSONContent) => JSONContent) => {
+    const inspection = inspectLinearMarkdown(serialize(candidate), extensions)
+    return inspection.ok &&
+      JSON.stringify(trimTableCellWhitespace(candidate)) ===
+        JSON.stringify(normalize(inspection.document))
+      ? inspection
+      : undefined
+  }
+  return save(document, (parsed) => parsed) ?? save(trimDocumentEnd(document), trimDocumentEnd)
 }

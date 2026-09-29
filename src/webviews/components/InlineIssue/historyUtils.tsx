@@ -1,5 +1,4 @@
 /* eslint-disable react/jsx-key */
-import moment from "moment"
 import { ReactNode } from "react"
 import { WorkflowStateWithStateProgress } from "src/types/Linear"
 import {
@@ -11,6 +10,7 @@ import {
 } from "src/types/SerializedLinear"
 import { IssueContextValueData } from "src/webviews/contexts/IssueContext"
 import { History } from "src/webviews/utils/history"
+import moment from "src/webviews/utils/moment"
 
 import { Assignee } from "../Assignee/Assignee"
 import { Estimate } from "../EstimatePicker/Estimate"

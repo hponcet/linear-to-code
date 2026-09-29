@@ -1,7 +1,7 @@
-import moment from "moment"
 import { useState } from "react"
 import { SerializedAttachment } from "src/types/SerializedLinear"
 import { useIssueContext } from "src/webviews/contexts/IssueContext"
+import moment from "src/webviews/utils/moment"
 
 import { EditIcon } from "../Icons/EditIcon"
 import { LinkIcon } from "../Icons/LinkIcon"
