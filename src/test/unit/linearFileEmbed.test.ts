@@ -1,6 +1,8 @@
 import * as assert from "assert"
 
+import { getSchema } from "@tiptap/core"
 import { Markdown, MarkdownManager } from "@tiptap/markdown"
+import { NodeSelection } from "@tiptap/pm/state"
 import { StarterKit } from "@tiptap/starter-kit"
 
 import {
@@ -48,6 +50,18 @@ function findNodes(node: JSONContent, type: string): JSONContent[] {
 suite("Linear file embeds", () => {
   const manager = new MarkdownManager({
     extensions: [Markdown, StarterKit, LinearFile],
+  })
+
+  test("allows native dragging of the complete file node with its portable metadata", () => {
+    const schema = getSchema([StarterKit, LinearFile])
+    const document = schema.nodeFromJSON(manager.parse(observedSource))
+    const selection = NodeSelection.create(document, 0)
+
+    assert.strictEqual(selection.node.type.spec.draggable, true)
+    assert.strictEqual(
+      manager.serialize({ type: "doc", content: selection.content().content.toJSON() }),
+      canonicalSource,
+    )
   })
 
   test("extracts only portable fields and strips only the Linear signature", () => {

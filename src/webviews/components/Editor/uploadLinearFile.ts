@@ -1,5 +1,15 @@
 export const MAX_LINEAR_FILE_SIZE = 10 * 1024 * 1024
 
+export function openFilePicker(
+  input: Pick<HTMLInputElement, "value" | "oncancel" | "click">,
+  onCancel: () => void,
+): void {
+  input.value = ""
+  // Window focus can return before the browser delivers the selected files.
+  input.oncancel = onCancel
+  input.click()
+}
+
 type UploadApi = {
   uploadLinearFile: (request: {
     uploadId: string

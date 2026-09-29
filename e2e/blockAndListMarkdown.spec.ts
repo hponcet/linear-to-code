@@ -398,3 +398,37 @@ test("emits the document after edit, undo, and redo", async ({ page }) => {
   expect(await getDescriptionUpdates(page)).toHaveLength(3)
   await harness.assertClean()
 })
+
+test("keeps a wide image and its selection ring inside the editor's scroll container", async ({
+  page,
+}) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900"/></svg>`
+  const source = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
+  const harness = await openIssueWebview(
+    page,
+    `> Quoted screenshot:\n>\n> ![Screenshot](${source})`,
+  )
+  const image = page.locator("blockquote").getByRole("img", { name: "Screenshot" })
+  await expect(image).toBeVisible()
+
+  const overflow = await page
+    .locator(".simple-editor-wrapper")
+    .first()
+    .evaluate((wrapper) => wrapper.scrollWidth - wrapper.clientWidth)
+  expect(overflow).toBe(0)
+
+  // The selection ring must stay inside the scroll container instead of being clipped by it.
+  await image.click()
+  await expect(page.locator(".react-renderer.ProseMirror-selectednode")).toBeVisible()
+  const ringOverflow = await page
+    .locator(".react-renderer.ProseMirror-selectednode > *")
+    .evaluate((ring) => {
+      const wrapper = ring.closest(".simple-editor-wrapper")!.getBoundingClientRect()
+      const box = ring.getBoundingClientRect()
+      const style = getComputedStyle(ring)
+      const spread = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+      return Math.max(box.right + spread - wrapper.right, wrapper.left - (box.left - spread))
+    })
+  expect(ringOverflow).toBeLessThanOrEqual(0)
+  await harness.assertClean()
+})

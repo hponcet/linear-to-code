@@ -2,10 +2,33 @@ import * as assert from "assert"
 
 import {
   MAX_LINEAR_FILE_SIZE,
+  openFilePicker,
   uploadFileToLinear,
 } from "../../webviews/components/Editor/uploadLinearFile"
 
 suite("uploadLinearFile", () => {
+  test("file pickers reset the selection and use only the latest native cancel handler", () => {
+    let opens = 0
+    let cancellations = 0
+    const input = {
+      value: "previous.pdf",
+      oncancel: null as (() => void) | null,
+      click() {
+        assert.strictEqual(this.value, "")
+        assert.ok(this.oncancel)
+        opens += 1
+      },
+    }
+
+    openFilePicker(input, () => assert.fail("Stale cancel handler"))
+    input.value = "previous.pdf"
+    openFilePicker(input, () => (cancellations += 1))
+    assert.strictEqual(opens, 2)
+    assert.strictEqual(cancellations, 0)
+    input.oncancel?.()
+    assert.strictEqual(cancellations, 1)
+  })
+
   test("rejects files larger than the webview boundary", async () => {
     const file = new File([new Uint8Array(1)], "large.bin", {
       type: "application/octet-stream",

@@ -26,6 +26,7 @@ import { createLinearMarkdownExtensions, inspectLinearMarkdown } from "./linearM
 import { Audio } from "./markdownPlugins/AudioPlugin"
 import { LinearCodeBlock } from "./markdownPlugins/CodeBlockPlugin"
 import { LinearFileWithNodeView } from "./markdownPlugins/FilePlugin/LinearFileNodeView"
+import { getImageDragSelection } from "./markdownPlugins/LinearImage"
 import { LinearImageWithNodeView } from "./markdownPlugins/LinearImageNodeView"
 import {
   createUserMentionExtension,
@@ -40,7 +41,7 @@ import {
 import { TableControls } from "./markdownPlugins/TablePlugin/TableControls"
 import { Video } from "./markdownPlugins/VideosPlugin/VideoPlugin"
 import { setEditorEditable } from "./setEditorEditable"
-import { MAX_LINEAR_FILE_SIZE, uploadFileToLinear } from "./uploadLinearFile"
+import { MAX_LINEAR_FILE_SIZE, openFilePicker, uploadFileToLinear } from "./uploadLinearFile"
 
 import { EmojiPicker } from "../EmojiPicker/EmojiPicker"
 
@@ -370,21 +371,12 @@ function ValidatedEditor(props: EditorProps) {
         setEditorEditable(editor, editableRef.current)
         return
       }
-      input.value = ""
-      window.addEventListener(
-        "focus",
-        () => {
-          window.setTimeout(() => {
-            if (pendingFileRef.current === pending && !input.files?.length) {
-              pendingFileRef.current = null
-              setEditorEditable(editor, editableRef.current)
-              reportValidity(true)
-            }
-          })
-        },
-        { once: true },
-      )
-      input.click()
+      openFilePicker(input, () => {
+        if (pendingFileRef.current !== pending) return
+        pendingFileRef.current = null
+        setEditorEditable(editor, editableRef.current)
+        reportValidity(true)
+      })
     },
     [reportValidity],
   )
@@ -440,6 +432,15 @@ function ValidatedEditor(props: EditorProps) {
           ...(editable ? { "aria-multiline": "true" } : {}),
           class: "simple-editor",
         },
+        handleDOMEvents: {
+          dragstart: (view, event) => {
+            if (!view.editable) return false
+            const position = view.posAtCoords({ left: event.clientX, top: event.clientY })
+            const selection = position && getImageDragSelection(view.state.doc, position.inside)
+            if (selection) view.dispatch(view.state.tr.setSelection(selection))
+            return false
+          },
+        },
         handlePaste: (_view, event) => {
           const file = event.clipboardData?.files?.[0]
           const currentEditor = editorInstanceRef.current
@@ -471,6 +472,7 @@ function ValidatedEditor(props: EditorProps) {
           return true
         },
         handleDrop: (view, event) => {
+          if (view.dragging) return false
           const file = event.dataTransfer?.files?.[0]
           const currentEditor = editorInstanceRef.current
           if (!file || !currentEditor || !editableRef.current) return false

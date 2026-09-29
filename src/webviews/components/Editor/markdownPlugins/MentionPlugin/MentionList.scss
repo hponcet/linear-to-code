@@ -7,10 +7,10 @@
   max-height: 320px;
   padding: 4px;
   overflow-y: auto;
-  border: 1px solid var(--vscode-widget-border, var(--rs-border-primary));
-  border-radius: 8px;
-  background: var(--vscode-editorWidget-background, var(--rs-bg-overlay));
-  box-shadow: 0 4px 16px rgb(0 0 0 / 40%);
+  border: 1px solid var(--tt-toolbar-border-color);
+  border-radius: var(--tt-radius-sm);
+  background: var(--tt-toolbar-bg-color);
+  box-shadow: var(--tt-shadow-elevated-md);
 }
 
 .mentionListEmpty {

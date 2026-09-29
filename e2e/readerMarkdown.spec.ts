@@ -319,11 +319,9 @@ test("renders and downloads a private file without treating it as an external li
       bodyBase64: Buffer.from("Reader PDF fixture").toString("base64"),
     },
   })
-  const file = reader.getByRole("link", { name: "Download reader.pdf" })
+  const file = reader.getByRole("button", { name: "Download reader.pdf" })
 
   await expect(file).toBeVisible()
-  await expect(file).toHaveAttribute("download", "reader.pdf")
-  await expect(file).toHaveAttribute("href", /^blob:/)
   const downloadPromise = page.waitForEvent("download")
   await file.click()
   expect((await downloadPromise).suggestedFilename()).toBe("reader.pdf")

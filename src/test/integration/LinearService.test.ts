@@ -523,7 +523,7 @@ suite("LinearService integration", () => {
     assert.strictEqual(organizationReads, 1)
   })
 
-  test("uploadLinearFile uses Linear's signed request without adding headers", async () => {
+  test("uploadLinearFile supplies required headers omitted by Linear", async () => {
     const data = Buffer.from("hello")
     let sdkArguments: unknown[] = []
     let fetchedUrl = ""
@@ -538,10 +538,7 @@ suite("LinearService integration", () => {
               uploadFile: {
                 uploadUrl: "https://storage.googleapis.com/upload-target",
                 assetUrl: "https://uploads.linear.app/asset.txt",
-                headers: [
-                  { key: "Content-Type", value: "text/plain" },
-                  { key: "x-goog-content-length-range", value: "5,5" },
-                ],
+                headers: [{ key: "x-goog-content-length-range", value: "5,5" }],
               },
             }
           },
@@ -552,7 +549,11 @@ suite("LinearService integration", () => {
     globalThis.fetch = async (url, options) => {
       fetchedUrl = String(url)
       fetchOptions = options
-      return { ok: true, status: 200 } as Response
+      const headers = new Headers(options?.headers)
+      const valid =
+        headers.get("Content-Type") === "text/plain" &&
+        headers.get("Cache-Control") === "public, max-age=31536000"
+      return new Response(null, { status: valid ? 200 : 400 })
     }
 
     try {
@@ -567,13 +568,59 @@ suite("LinearService integration", () => {
       assert.deepStrictEqual(sdkArguments, ["text/plain", "asset.txt", 5])
       assert.strictEqual(fetchedUrl, "https://storage.googleapis.com/upload-target")
       assert.strictEqual(fetchOptions?.method, "PUT")
-      assert.deepStrictEqual(fetchOptions?.headers, [
-        ["Content-Type", "text/plain"],
-        ["x-goog-content-length-range", "5,5"],
-      ])
+      const headers: Record<string, string> = {}
+      new Headers(fetchOptions?.headers).forEach((value, key) => (headers[key] = value))
+      assert.deepStrictEqual(headers, {
+        "cache-control": "public, max-age=31536000",
+        "content-type": "text/plain",
+        "x-goog-content-length-range": "5,5",
+      })
       assert.strictEqual(Buffer.from(fetchOptions?.body as ArrayBuffer).toString(), "hello")
       assert.strictEqual(fetchOptions?.redirect, "error")
       assert.deepStrictEqual(result, { assetUrl: "https://uploads.linear.app/asset.txt" })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  test("uploadLinearFile preserves signed headers over defaults regardless of casing", async () => {
+    const service = new LinearService(
+      () =>
+        ({
+          fileUpload: async () => ({
+            success: true,
+            uploadFile: {
+              uploadUrl: "https://storage.googleapis.com/upload-target",
+              assetUrl: "https://uploads.linear.app/asset.png",
+              headers: [
+                { key: "content-type", value: "application/octet-stream" },
+                { key: "cache-control", value: "private, max-age=3600" },
+                { key: "x-goog-content-length-range", value: "1,1" },
+              ],
+            },
+          }),
+        }) as unknown as LinearClient,
+      new LinearCacheStore(),
+    )
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (_url, options) => {
+      const headers: Record<string, string> = {}
+      new Headers(options?.headers).forEach((value, key) => (headers[key] = value))
+      assert.deepStrictEqual(headers, {
+        "cache-control": "private, max-age=3600",
+        "content-type": "application/octet-stream",
+        "x-goog-content-length-range": "1,1",
+      })
+      return new Response(null, { status: 200 })
+    }
+    try {
+      await service.uploadLinearFile({
+        uploadId: "upload-signed-headers",
+        name: "asset.png",
+        mimeType: "image/png",
+        size: 1,
+        base64: "YQ==",
+      })
     } finally {
       globalThis.fetch = originalFetch
     }

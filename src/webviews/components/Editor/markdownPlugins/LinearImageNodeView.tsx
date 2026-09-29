@@ -7,7 +7,11 @@ import {
 } from "src/webviews/components/Editor/components/tiptap-icons/image-menu-icons"
 import { LinkIcon } from "src/webviews/components/Editor/components/tiptap-icons/link-icon"
 import { TrashIcon } from "src/webviews/components/Editor/components/tiptap-icons/trash-icon"
-import { Button } from "src/webviews/components/Editor/components/tiptap-ui-primitive/button"
+import {
+  Button,
+  ButtonGroup,
+} from "src/webviews/components/Editor/components/tiptap-ui-primitive/button"
+import { Card, CardBody } from "src/webviews/components/Editor/components/tiptap-ui-primitive/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,16 +112,22 @@ function ImageOptionsMenu(props: {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" data-linear-editor-ui="">
-        {items.map((item) => (
-          // Radix selects on pointerup. ProseMirror suppresses the click event inside a node
-          // view, so a child onClick never fires here — onSelect is the handler that does.
-          <DropdownMenuItem key={item.id} onSelect={item.run} asChild>
-            <Button type="button" data-style="ghost" showTooltip={false}>
-              {item.icon}
-              <span>{item.label}</span>
-            </Button>
-          </DropdownMenuItem>
-        ))}
+        <Card>
+          <CardBody>
+            <ButtonGroup>
+              {items.map((item) => (
+                // Radix selects on pointerup. ProseMirror suppresses the click event inside a node
+                // view, so a child onClick never fires here — onSelect is the handler that does.
+                <DropdownMenuItem key={item.id} onSelect={item.run} asChild>
+                  <Button type="button" data-style="ghost" showTooltip={false}>
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Button>
+                </DropdownMenuItem>
+              ))}
+            </ButtonGroup>
+          </CardBody>
+        </Card>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -146,6 +156,7 @@ export function LinearImageRenderer({ node, deleteNode }: ReactNodeViewProps<HTM
       as="span"
       className="linear-image"
       contentEditable={false}
+      data-drag-handle=""
       aria-busy={privateImage.isPrivate && privateImage.status === "loading"}
     >
       {privateImage.isPrivate && privateImage.status === "loading" ? (

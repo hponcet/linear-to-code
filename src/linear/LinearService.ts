@@ -932,7 +932,11 @@ export class LinearService {
         throw new Error("Linear returned an insecure file upload URL")
       }
 
-      const headers: [string, string][] = uploadFile.headers.map(({ key, value }) => [key, value])
+      const headers = new Headers({
+        "Content-Type": input.mimeType,
+        "Cache-Control": "public, max-age=31536000",
+      })
+      uploadFile.headers.forEach(({ key, value }) => headers.set(key, value))
       const response = await fetch(uploadUrl, {
         method: "PUT",
         headers,

@@ -1,6 +1,7 @@
 import { mergeAttributes } from "@tiptap/core"
 import { Image } from "@tiptap/extension-image"
 import { Link } from "@tiptap/extension-link"
+import { NodeSelection } from "@tiptap/pm/state"
 
 import { parseLinearMentionUrl } from "./MentionPlugin/LinearMention"
 import {
@@ -17,11 +18,26 @@ import {
 } from "../markdownEscaping"
 
 import type { JSONContent, MarkdownToken } from "@tiptap/core"
-import type { DOMOutputSpec } from "@tiptap/pm/model"
+import type { DOMOutputSpec, Node } from "@tiptap/pm/model"
 
 type LinkedImageAttributes = {
   linkHref?: string | null
   linkTitle?: string | null
+}
+
+export function getImageDragSelection(document: Node, position: number): NodeSelection | null {
+  if (position < 0) return null
+  const $position = document.resolve(position)
+  if (
+    $position.nodeAfter?.type.name !== "image" ||
+    $position.parent.type.name !== "paragraph" ||
+    $position.parent.childCount !== 1
+  ) {
+    return null
+  }
+
+  // Move a standalone image's paragraph too, so no empty source paragraph blocks Markdown saves.
+  return NodeSelection.create(document, $position.before())
 }
 
 export const LinearImage = Image.extend({

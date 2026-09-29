@@ -97,10 +97,16 @@
 
   img {
     display: inline-block;
-    border-radius: 20px;
+    border-radius: 0.375rem;
     max-height: 600px;
     margin: 0.25rem;
     vertical-align: middle;
+  }
+
+  // The Linear image wrapper owns the spacing: the inline-image margin on top of `max-width: 100%`
+  // would push a wide image past the text column and scroll the editor horizontally.
+  .linear-image img {
+    margin: 0;
   }
 
   p:has(> img:only-child) img {
@@ -192,15 +198,16 @@
     overflow-x: auto;
   }
 
-  // Every React node view — image, attachment, audio, video, code block, mention — gets the same
+  // React node views other than the upload control get the same
   // selection ring. ProseMirror's own rules blank the outline and skip `.react-renderer`
   // entirely, so without this a selected component gave no feedback at all. The ring sits on the
   // node view's own wrapper rather than the renderer box, so it hugs the component instead of
-  // stretching across the text column.
-  .react-renderer.ProseMirror-selectednode > * {
+  // stretching across the text column. It is drawn inside the component's edge: a full-width
+  // component would otherwise have its ring clipped by the editor's scroll container.
+  .react-renderer.ProseMirror-selectednode > :not(.tiptap-image-upload) {
     outline: 0.125rem solid var(--vscode-focusBorder, currentcolor);
-    outline-offset: 0.125rem;
-    border-radius: 0.25rem;
+    outline-offset: -0.125rem;
+    border-radius: 0.375rem;
   }
 
   // Linear centres an image and draws the selection ring around the picture itself. The node
@@ -252,36 +259,26 @@
     border-radius: 0.375rem;
     color: var(--vscode-foreground);
     text-decoration: none;
-
-    &:focus-visible {
-      outline: 1px solid var(--vscode-focusBorder, currentcolor);
-      outline-offset: 2px;
-    }
   }
 
-  // The glyphs live in CSS so the React node view and the plain renderHTML spec — the two ways
-  // this node reaches the DOM — cannot drift apart again.
-  .linear-file-card::before,
-  .linear-file-card::after {
+  .linear-file-card__download {
+    flex: none;
+    margin-left: auto;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  // The file glyph lives in CSS so the React node view and the plain renderHTML spec — the two
+  // ways this node reaches the DOM — cannot drift apart again.
+  .linear-file-card::before {
     width: 1.125rem;
     height: 1.125rem;
     flex: none;
-    background-color: currentcolor;
+    background-color: var(--vscode-descriptionForeground);
     content: "";
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h7a1 1 0 0 1 .707.293l5 5A1 1 0 0 1 19 8v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm1 2v16h10V9h-4a1 1 0 0 1-1-1V4H7Zm7 .414V7h2.586L14 4.414Z'/%3E%3C/svg%3E");
     mask-position: center;
     mask-repeat: no-repeat;
     mask-size: contain;
-  }
-
-  .linear-file-card::before {
-    color: var(--vscode-descriptionForeground);
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 2h7a1 1 0 0 1 .707.293l5 5A1 1 0 0 1 19 8v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm1 2v16h10V9h-4a1 1 0 0 1-1-1V4H7Zm7 .414V7h2.586L14 4.414Z'/%3E%3C/svg%3E");
-  }
-
-  .linear-file-card::after {
-    margin-left: auto;
-    color: var(--vscode-descriptionForeground);
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3a1 1 0 0 1 1 1v8.586l2.293-2.293 1.414 1.414L12 16.414l-4.707-4.707 1.414-1.414L11 12.586V4a1 1 0 0 1 1-1Zm-7 15h14v2H5v-2Z'/%3E%3C/svg%3E");
   }
 
   .linear-file-card__text {

@@ -122,10 +122,9 @@
   Shadow variables
   ******************/
 
-  /* Shadows Light */
   --tt-shadow-elevated-md:
-    0px 16px 48px 0px rgb(17 24 39 / 4%), 0px 12px 24px 0px rgb(17 24 39 / 4%),
-    0px 6px 8px 0px rgb(17 24 39 / 2%), 0px 2px 3px 0px rgb(17 24 39 / 2%);
+    0px 16px 48px 0px rgb(0 0 0 / 4%), 0px 12px 24px 0px rgb(0 0 0 / 4%),
+    0px 6px 8px 0px rgb(0 0 0 / 2%), 0px 2px 3px 0px rgb(0 0 0 / 2%);
 
   /************************************************** 
        Radius variables 
@@ -178,11 +177,6 @@
   --tt-selection-color: color-mix(in srgb, var(--vscode-textLink-foreground) 20%, transparent);
   --tt-card-bg-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
   --tt-card-border-color: var(--vscode-widget-border, var(--vscode-panel-border));
-  --tt-shadow-elevated-md:
-    0px 16px 48px 0px color-mix(in srgb, var(--vscode-foreground) 4%, transparent),
-    0px 12px 24px 0px color-mix(in srgb, var(--vscode-foreground) 4%, transparent),
-    0px 6px 8px 0px color-mix(in srgb, var(--vscode-foreground) 2%, transparent),
-    0px 2px 3px 0px color-mix(in srgb, var(--vscode-foreground) 2%, transparent);
   /* stylelint-enable custom-property-pattern */
 }
 

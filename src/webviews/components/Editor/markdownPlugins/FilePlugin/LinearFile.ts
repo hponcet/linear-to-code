@@ -207,7 +207,7 @@ export const LinearFile = Node.create({
 
   atom: true,
 
-  draggable: false,
+  draggable: true,
 
   addAttributes() {
     return {

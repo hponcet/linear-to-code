@@ -27,6 +27,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Changed
 
+- Match editor menus to the formatting toolbar with shared backgrounds, borders, black shadows, and subtle 6 px corner rounding.
+
+- Left-align icons and labels in editor menu items.
+
 - Added icons to every Workspace navigation picker, using a theme-colored team icon and preserving project icons and colors.
 
 - Keep editable issue titles visually unchanged on hover and focus, without input borders or padding, and save without a visible loader that shifts the layout.
@@ -57,6 +61,25 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- Allow existing images and file attachments to be dragged within the editor without re-uploading them, preserving their content and undo history.
+
+- Prevent file and image selections from being discarded when focus returns before the native file picker reports its result; use its explicit cancellation event instead.
+
+- Send the required MIME type and cache headers with Linear file uploads, preserving any headers returned by Linear.
+- Remove the blue selection outline from image upload blocks while keeping a neutral keyboard focus indicator.
+
+- Give the editor's image options menu an opaque, theme-aware surface matching the other editor menus.
+
+- Draw editor blockquote bars as an opaque, theme-aware border (the contrast border in high-contrast themes) so quote content spans the full width minus the bar; the bar was previously near-white in every theme.
+
+- Fixed wide images, including screenshots inside blockquotes, overflowing the editor by a few pixels and showing a horizontal scrollbar.
+
+- Reduced editor image corner rounding from 20 px to 6 px, matching the other editor surfaces.
+
+- Fixed selection and focus rings on full-width editor components (images, code blocks, videos, file cards) being cut off by the editor edge; they are now drawn inside the component.
+
+- Clicking a file attachment in the editor now selects it, like an image, instead of downloading it; downloading is done from its download button.
+
 - Replaced the gray question-mark avatar for unassigned issues in native lists with Linear's Unassigned icon, matching issue panels.
 
 - Kept the existing issue tree visible during manual and automatic refreshes, with native view progress and a single update after all pages load. Failed refreshes preserve the previous list.
@@ -68,7 +91,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Prevented stale issue pages and invalidated in-flight cache entries from replacing newer navigation results. Ticket changes now recheck membership in the current API-filtered list.
 
 - Fixed assigned labels and label choices disappearing from issue details and Start Work when an issue belongs to a project.
-- Fixed menu, hover card, and tooltip shadows glowing white on dark themes because they were tinted with the foreground colour instead of black.
+- Fixed editor menus, floating toolbars, hover cards, and tooltips showing light shadows on dark themes by using black shadow colors.
 - Fixed a project or document reference making a whole description read-only, because their Linear entity tags were parsed as raw HTML.
 - Fixed an invalid Mermaid diagram leaving Mermaid's own "Syntax error" graphic stuck at the bottom of the webview, outside the code block that reports the error.
 - Fixed uploaded Linear videos showing as a plain link instead of a player when Linear serialises them as a Markdown link, since their asset URL carries no file extension and only the label names the format; when Linear labelled the link after the asset URL itself, the downloaded media type decides between the player and a link.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { CloseIcon } from "src/webviews/components/Editor/components/tiptap-icons/close-icon"
 import { Button } from "src/webviews/components/Editor/components/tiptap-ui-primitive/button"
 import { focusNextNode, isValidPosition } from "src/webviews/components/Editor/lib/tiptap-utils"
+import { openFilePicker } from "src/webviews/components/Editor/uploadLinearFile"
 
 import type { NodeViewProps } from "@tiptap/react"
 
@@ -505,18 +506,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
 
   const handleClick = () => {
     if (inputRef.current && fileItems.length === 0) {
-      const input = inputRef.current
-      input.value = ""
-      window.addEventListener(
-        "focus",
-        () => {
-          window.setTimeout(() => {
-            if (!input.files?.length) removeUploadNode()
-          })
-        },
-        { once: true },
-      )
-      input.click()
+      openFilePicker(inputRef.current, removeUploadNode)
     }
   }
 

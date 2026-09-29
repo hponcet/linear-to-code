@@ -29,6 +29,7 @@
 
 .tiptap-image-upload {
   margin: 2rem 0;
+  outline: none;
 
   input[type="file"] {
     display: none;
@@ -120,6 +121,11 @@
     }
   }
 
+  &:focus-visible .tiptap-image-upload-drag-area {
+    border-color: var(--tiptap-image-upload-border-hover);
+    background: var(--lm-hover-overlay);
+  }
+
   .tiptap-image-upload-content {
     display: flex;
     align-items: center;
@@ -208,12 +214,6 @@
         font-weight: 600;
       }
     }
-  }
-}
-
-.tiptap.ProseMirror.ProseMirror-focused {
-  .ProseMirror-selectednode .tiptap-image-upload-drag-area {
-    border-color: var(--tiptap-image-upload-active);
   }
 }
 

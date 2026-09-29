@@ -640,6 +640,68 @@ for (const uploadCase of uploadCases) {
   })
 }
 
+for (const kind of ["file", "image"] as const) {
+  test(`keeps the ${kind} picker pending when focus returns before the file selection`, async ({
+    page,
+  }) => {
+    const uploadCase = uploadCases.find((entry) => entry.kind === kind)!
+    const name = `selected.${uploadCase.extension}`
+    const url = `https://uploads.linear.app/e2e/${name}`
+    const harness = await openIssueWebview(page, {
+      initialDescription: "",
+      uploadAsset: { url, contentType: uploadCase.mimeType, bodyBase64: uploadCase.bodyBase64 },
+    })
+    const editor = page.getByRole("textbox", { name: "Issue description" })
+    const chooserPromise = page.waitForEvent("filechooser")
+    await runSlashCommand(page, editor, kind, kind === "file" ? "File" : "Image")
+    if (kind === "image") await page.getByRole("button", { name: "Upload image" }).click()
+    const chooser = await chooserPromise
+
+    await page.evaluate(async () => {
+      window.dispatchEvent(new Event("focus"))
+      await new Promise((resolve) => window.setTimeout(resolve))
+    })
+    await chooser.setFiles({
+      name,
+      mimeType: uploadCase.mimeType,
+      buffer: Buffer.from(uploadCase.bodyBase64, "base64"),
+    })
+
+    await expectDescriptionSave(page, 0, uploadCase.markdown(url, name))
+    await uploadCase.assertRendered(page, name)
+    expect(await getIpcRequests(page, "uploadLinearFile")).toHaveLength(1)
+    await harness.assertClean()
+  })
+
+  test(`cancels the ${kind} picker and allows a later upload`, async ({ page }) => {
+    const uploadCase = uploadCases.find((entry) => entry.kind === kind)!
+    const name = `selected.${uploadCase.extension}`
+    const url = `https://uploads.linear.app/e2e/${name}`
+    const harness = await openIssueWebview(page, {
+      initialDescription: "",
+      uploadAsset: { url, contentType: uploadCase.mimeType, bodyBase64: uploadCase.bodyBase64 },
+    })
+    const editor = page.getByRole("textbox", { name: "Issue description" })
+    const chooserPromise = page.waitForEvent("filechooser")
+    await runSlashCommand(page, editor, kind, kind === "file" ? "File" : "Image")
+    if (kind === "image") await page.getByRole("button", { name: "Upload image" }).click()
+    const chooser = await chooserPromise
+    await chooser.element().dispatchEvent("cancel")
+
+    await expect(editor).toHaveAttribute("contenteditable", "true")
+    await expect(editor.locator(".tiptap-image-upload")).toHaveCount(0)
+    expect(await getIpcRequests(page, "uploadLinearFile")).toEqual([])
+    expect(await getDescriptionUpdates(page)).toEqual([])
+    await clearEditor(editor)
+    await uploadThroughEditor(page, editor, uploadCase, name)
+    await expect
+      .poll(async () => (await getDescriptionUpdates(page)).at(-1)?.fields.description)
+      .toBe(uploadCase.markdown(url, name))
+    await uploadCase.assertRendered(page, name)
+    await harness.assertClean()
+  })
+}
+
 test("retries a failed file upload and saves only the successful result", async ({ page }) => {
   const fileCase = uploadCases.find(({ kind }) => kind === "file")!
   const url = "https://uploads.linear.app/e2e/retried.pdf"
@@ -951,5 +1013,31 @@ test("offers image options anchored inside the webview and deletes the image", a
 
   await menu.getByRole("menuitem", { name: "Delete", exact: true }).click()
   await expectDescriptionSave(page, 0, "")
+  await harness.assertClean()
+})
+
+test("selects a file card on click and downloads only from its download button", async ({
+  page,
+}) => {
+  const url = "https://uploads.linear.app/e2e/select.pdf"
+  const harness = await openIssueWebview(page, {
+    initialDescription: `<linear-embed node-type="file">{"uploadState":"finished","href":"${url}","name":"select.pdf","size":1,"mimetype":"application/pdf"}</linear-embed>`,
+    uploadAsset: {
+      url,
+      contentType: "application/pdf",
+      bodyBase64: Buffer.from("PDF").toString("base64"),
+    },
+  })
+  const downloads: string[] = []
+  page.on("download", (download) => downloads.push(download.suggestedFilename()))
+
+  await page.getByRole("group", { name: "select.pdf" }).getByText("select.pdf").click()
+  await expect(page.locator(".react-renderer.ProseMirror-selectednode")).toHaveCount(1)
+  expect(downloads).toEqual([])
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Download select.pdf" }).click()
+  expect((await downloadPromise).suggestedFilename()).toBe("select.pdf")
+  expect(await getIpcRequests(page, "openExternalUrl")).toEqual([])
   await harness.assertClean()
 })
