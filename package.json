@@ -3,7 +3,7 @@
   "displayName": "Linear in Editor",
   "description": "Get the entire Linear experience in your editor.",
   "icon": "resources/images/linear_dark.png",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "hpon",
   "repository": "https://github.com/hponcet/linear-to-code",
   "engines": {

@@ -4,7 +4,7 @@ All notable changes to the "linear-to-code" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-29
 
 ### Added
 
