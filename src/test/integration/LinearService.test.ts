@@ -248,6 +248,36 @@ suite("LinearService integration", () => {
     assert.strictEqual(calls.length, 1)
   })
 
+  test("createIssue validates the title, sends the team and refreshes issue lists", async () => {
+    let assignedFetchCount = 0
+    const inputs: Record<string, unknown>[] = []
+    const client = createMockClient({
+      onAssignedIssuesFetch: () => {
+        assignedFetchCount += 1
+      },
+    })
+    client.createIssue = async (input) => {
+      inputs.push(input)
+      return {
+        issue: Promise.resolve(createMockIssue({ id: "created", title: input.title ?? "" })),
+      } as never
+    }
+    const service = new LinearService(() => client, new LinearCacheStore())
+
+    await service.getAssignedIssues()
+    const issue = await service.createIssue("team", { title: "  New\nissue  ", priority: 2 })
+    await service.getAssignedIssues()
+
+    assert.strictEqual(issue.title, "New issue")
+    assert.deepStrictEqual(inputs, [{ title: "New issue", priority: 2, teamId: "team" }])
+    assert.strictEqual(assignedFetchCount, 2)
+    await assert.rejects(service.createIssue("team", { title: " \n " }), /cannot be empty/)
+    await service.createSubIssue("parent", "team", { title: "Child" })
+    assert.deepStrictEqual(inputs.slice(1), [
+      { title: "Child", parentId: "parent", teamId: "team" },
+    ])
+  })
+
   test("updateIssue invalidates the issue cache", async () => {
     let issueFetchCount = 0
     const service = new LinearService(

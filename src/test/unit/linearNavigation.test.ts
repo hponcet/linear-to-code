@@ -6,6 +6,7 @@ import {
   defaultNavigationFilters,
   NavigationFilters,
   NavigationMetadata,
+  newIssueDraft,
   normalizeNavigationFilters,
   restoreNavigationFilters,
 } from "../../linear/navigation"
@@ -208,5 +209,34 @@ suite("Linear navigation filters", () => {
       view: "allIssues",
       cycle: "any",
     })
+  })
+
+  test("pre-fills a new issue so it matches the current navigation", () => {
+    const withActiveCycle = {
+      ...navigationMetadata,
+      cycles: [
+        ...navigationMetadata.cycles,
+        { id: "active", name: "Cycle 2", teamId: "team", isActive: true },
+      ],
+    }
+    assert.deepStrictEqual(newIssueDraft(defaultNavigationFilters(), withActiveCycle, "me"), {
+      teamId: "team",
+      projectId: undefined,
+      cycleId: "active",
+      assigneeId: "me",
+    })
+    assert.deepStrictEqual(
+      newIssueDraft({ ...allIssuesFilters(), projectId: "design-only" }, navigationMetadata, "me"),
+      { teamId: "design", projectId: "design-only", cycleId: undefined, assigneeId: undefined },
+    )
+    // A filtered cycle decides the team even when another team is listed first.
+    assert.deepStrictEqual(
+      newIssueDraft(
+        { ...allIssuesFilters(), cycle: { id: "cycle" } },
+        { ...navigationMetadata, teams: [...navigationMetadata.teams].reverse() },
+        "me",
+      ),
+      { teamId: "team", projectId: undefined, cycleId: "cycle", assigneeId: undefined },
+    )
   })
 })

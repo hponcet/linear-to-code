@@ -6,17 +6,25 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-29
+
 ### Added
 
-- Added `Cmd+K Cmd+L` (`Ctrl+K Ctrl+L`) as an alternative shortcut for Search Linear Issues, matching `Cmd+K Cmd+I` for the current branch issue.
+- Added a Create Issue view, opened from **+** in the Issues view header or with `Cmd+K A` or `Cmd+K Cmd+A` (`Ctrl+K A` or `Ctrl+K Ctrl+A`). It matches the issue view and is pre-filled from the navigation: team, project, cycle, and yourself as assignee in My issues, with the team's default status. **Create Issue** is available once the issue has a title, a status, and a team; the form then closes and the new issue opens.
+- Added table keyboard navigation in the editor: Enter at the end of the last cell adds a row and moves to its first cell, and Enter again in that still-empty row leaves the table with a new line below it. Enter at the start of the first cell adds a new line above the table. Backspace in an empty cell moves to the end of the previous cell, in the first column of an empty row removes the row, and in an empty first cell (or Delete) removes the table.
 
 ### Changed
 
 - New workspaces now start on My issues in the current cycle instead of loading every issue in the workspace. An explicit All issues or any-cycle choice is still remembered.
-- In Cursor, keyboard shortcuts now use `Cmd+R` (`Ctrl+R`) instead of `Cmd+K` (`Ctrl+K`), following Cursor's chord prefix and no longer blocking Cursor's inline edit. VS Code keeps `Cmd+K` (`Ctrl+K`).
+- Open Issue for Current Branch now uses `Cmd+K B` or `Cmd+K Cmd+B` (`Ctrl+K B` or `Ctrl+K Ctrl+B`), and Search Linear Issues uses `Cmd+K S` or `Cmd+K Cmd+S` (`Ctrl+K S` or `Ctrl+K Ctrl+S`).
+- In Cursor, keyboard shortcuts now start with Cursor's chord prefix instead of `Cmd+K` (`Ctrl+K`): `Cmd+R` on Mac and `Ctrl+M` on Windows/Linux. They no longer block Cursor's inline edit. VS Code keeps `Cmd+K` (`Ctrl+K`).
 
 ### Fixed
 
+- Focusing the labels picker no longer draws an outline around its search field.
+- A space at the start or end of a table cell no longer disables Create Issue or blocks saving a description. The space is dropped on save, since Markdown tables can't keep it.
+- An empty line or line break at the end of a description (after a heading or a checklist, a line of spaces, an empty heading, or Shift+Enter) no longer disables Create Issue or pauses description saving. It is dropped on save, since Markdown can't keep it.
+- Switching or reconnecting a Linear workspace no longer logs `NoTreeViewError` for the Issues view.
 - Connect to Linear no longer fails with "command 'linearToCode.commands.refreshPullRequests' already exists" when a previous connection attempt failed while loading pull requests.
 
 ## [0.3.0] - 2026-09-29

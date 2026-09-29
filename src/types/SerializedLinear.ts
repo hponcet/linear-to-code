@@ -22,6 +22,7 @@ export type SerializedTeam = {
   key: string
   issueEstimationType?: string
   issueEstimationAllowZero?: boolean
+  defaultIssueStateId?: string
 }
 
 export type SerializedIssueLabel = {

@@ -1002,23 +1002,28 @@ export class LinearService {
     return true
   }
 
+  async createIssue(teamId: string, fields: IssueUpdateFields): Promise<Issue> {
+    const result = await this.#requireClient().createIssue({
+      ...fields,
+      title: normalizeIssueTitle(fields.title ?? ""),
+      teamId,
+    })
+    const createdIssue = await result.issue
+    if (!createdIssue) {
+      throw new Error("Failed to create issue")
+    }
+
+    this.invalidateIssueLists()
+    return createdIssue
+  }
+
   async createSubIssue(
     parentId: Issue["id"],
     teamId: string,
     fields: IssueUpdateFields,
   ): Promise<Issue> {
-    const result = await this.#requireClient().createIssue({
-      ...fields,
-      parentId,
-      teamId,
-    })
-    const createdIssue = await result.issue
-    if (!createdIssue) {
-      throw new Error(`Failed to create sub-issue for parent ${parentId}`)
-    }
-
+    const createdIssue = await this.createIssue(teamId, { ...fields, parentId })
     this.invalidateIssue(parentId)
-    this.invalidateIssueLists()
     return createdIssue
   }
 

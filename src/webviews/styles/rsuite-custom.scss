@@ -46,6 +46,12 @@
   outline: none;
 }
 
+// The tag picker's inline search input has no class, so the webview host's default
+// `input:focus` outline (the system accent color) draws a box inside the picker.
+.rs-picker-search-input input:focus {
+  outline: none;
+}
+
 .rs-picker[data-picker="tag"] .rs-picker-tag-list {
   align-items: center;
 }

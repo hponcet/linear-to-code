@@ -8,9 +8,11 @@ import {
   restoreNavigationFilters,
   NavigationFilters,
   NavigationMetadata,
+  newIssueDraft,
   normalizeNavigationFilters,
 } from "src/linear/navigation"
 import { filterWorkflowStatesByType } from "src/panels/commons/worflowStates"
+import { CreateIssueWebview } from "src/panels/CreateIssueWebview"
 import { IssueWebview } from "src/panels/IssueWebview"
 import { SettingsWebview, SettingsTab } from "src/panels/SettingsWebview"
 import { StartWorkWebview } from "src/panels/StartWorkWebview"
@@ -98,6 +100,7 @@ export class MyIssuesView
   #issuesWebviews: Map<string, IssueWebview> = new Map()
   #startWorkWebviews: Map<string, StartWorkWebview> = new Map()
   #settingsWebview: SettingsWebview | undefined
+  #createIssueWebview: CreateIssueWebview | undefined
 
   #autoRefreshInterval: NodeJS.Timeout | null = null
   #windowFocused = true
@@ -105,6 +108,42 @@ export class MyIssuesView
   #disposables: Disposable[] = []
 
   #treeView: ReturnType<typeof window.createTreeView<TreeElement>> | null = null
+
+  // One tree view for every workspace: disposing and recreating it on workspace switches races
+  // the workbench, which then calls into an unregistered tree (NoTreeViewError).
+  static #sharedTreeView: ReturnType<typeof window.createTreeView<TreeElement>> | undefined
+  static #activeView: MyIssuesView | undefined
+  static #treeChanges = new EventEmitter<void>()
+
+  static #showInTree(view: MyIssuesView) {
+    MyIssuesView.#activeView = view
+    MyIssuesView.#treeChanges.fire()
+    MyIssuesView.#sharedTreeView ??= window.createTreeView<TreeElement>(Views.myIssues, {
+      treeDataProvider: {
+        onDidChangeTreeData: MyIssuesView.#treeChanges.event,
+        getChildren: (element) => MyIssuesView.#activeView?.getChildren(element) ?? [],
+        getTreeItem: (element) =>
+          MyIssuesView.#activeView?.getTreeItem(element) ?? new TreeItem(""),
+      },
+      dragAndDropController: {
+        dropMimeTypes: view.dropMimeTypes,
+        dragMimeTypes: view.dragMimeTypes,
+        handleDrag: async (source, dataTransfer) =>
+          await MyIssuesView.#activeView?.handleDrag([...source], dataTransfer),
+        handleDrop: async (target, sources) =>
+          await MyIssuesView.#activeView?.handleDrop(target, sources),
+      },
+      showCollapseAll: true,
+      canSelectMany: true,
+    })
+    return MyIssuesView.#sharedTreeView
+  }
+
+  static disposeTreeView() {
+    MyIssuesView.#sharedTreeView?.dispose()
+    MyIssuesView.#sharedTreeView = undefined
+    MyIssuesView.#activeView = undefined
+  }
 
   constructor(
     context: ExtensionContext,
@@ -147,14 +186,8 @@ export class MyIssuesView
     })
     this.#disposables.push(configDisposable)
 
-    // Create TreeView
-    this.#treeView = window.createTreeView(Views.myIssues, {
-      treeDataProvider: this,
-      dragAndDropController: this,
-      showCollapseAll: true,
-      canSelectMany: true,
-    })
-    this.#disposables.push(this.#treeView)
+    this.#treeView = MyIssuesView.#showInTree(this)
+    this.#disposables.push(this.#onDidChangeTreeData.event(() => MyIssuesView.#treeChanges.fire()))
     this.#bindTreeExpansionState()
 
     // Register drag & drop providers
@@ -195,6 +228,7 @@ export class MyIssuesView
       ),
       commands.registerCommand(Commands.refresh, () => this.refresh()),
       commands.registerCommand(Commands.searchIssues, () => this.searchIssues()),
+      commands.registerCommand(Commands.createIssue, () => this.createIssue()),
       commands.registerCommand(Commands.openPullRequest, (issue: Issue) =>
         this.viewForIssue(issue).openPullRequestForIssue(issue),
       ),
@@ -617,6 +651,19 @@ export class MyIssuesView
     await launchCursorAgentForIssue(issue, this.#context, this.connection)
   }
 
+  public async createIssue(): Promise<void> {
+    const metadata = this.metadata ?? (await this.service.getNavigationMetadata())
+    this.#createIssueWebview ??= new CreateIssueWebview(
+      this.#context,
+      this.issuesActions,
+      this.connection,
+    )
+    await this.#createIssueWebview.open({}, ViewColumn.Active, {
+      teams: metadata.teams,
+      draft: newIssueDraft(this.filters, metadata, this.connection.userId),
+    })
+  }
+
   public async openSettingsTab(tab: SettingsTab): Promise<void> {
     const issue = this.#myIssues.values().next().value
     if (!this.#settingsWebview) {
@@ -964,6 +1011,12 @@ export class MyIssuesView
 
     this.#disposables.forEach((d) => d.dispose())
     this.#disposables = []
+    if (this.#treeView && MyIssuesView.#activeView === this) {
+      MyIssuesView.#activeView = undefined
+      this.#treeView.description = undefined
+      this.#treeView.message = undefined
+      MyIssuesView.#treeChanges.fire()
+    }
     this.#treeView = null
   }
 
@@ -975,6 +1028,8 @@ export class MyIssuesView
     this.#startWorkWebviews.clear()
     this.#settingsWebview?.dispose()
     this.#settingsWebview = undefined
+    this.#createIssueWebview?.dispose()
+    this.#createIssueWebview = undefined
 
     this.#treeItems.clear()
     this.#myIssues.clear()

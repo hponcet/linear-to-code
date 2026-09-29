@@ -9,6 +9,7 @@ export type LinearApiErrorHandler = (error: unknown, context: LinearApiErrorCont
 
 const OPERATION_LABELS: Partial<Record<IpcType<"req">, string>> = {
   getIssue: "Failed to load issue",
+  openIssue: "Failed to open issue",
   getViewer: "Failed to load user profile",
   getTeam: "Failed to load team",
   getTeamMetadata: "Failed to load team data",
@@ -30,6 +31,7 @@ const OPERATION_LABELS: Partial<Record<IpcType<"req">, string>> = {
   deleteReaction: "Failed to remove reaction",
   createAttachment: "Failed to add attachment",
   deleteAttachment: "Failed to delete attachment",
+  createIssue: "Failed to create issue",
   createSubIssue: "Failed to create sub-issue",
   deleteSubIssue: "Failed to delete issue",
 }

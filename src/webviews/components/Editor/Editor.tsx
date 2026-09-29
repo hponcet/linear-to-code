@@ -22,7 +22,12 @@ import {
 import { useIssueContext } from "src/webviews/contexts/IssueContext"
 import { useEditorThemeClass } from "src/webviews/hooks/useVsCodeTheme"
 
-import { createLinearMarkdownExtensions, inspectLinearMarkdown } from "./linearMarkdown"
+import {
+  createLinearMarkdownExtensions,
+  inspectLinearMarkdown,
+  trimDocumentEnd,
+  trimTableCellWhitespace,
+} from "./linearMarkdown"
 import { Audio } from "./markdownPlugins/AudioPlugin"
 import { LinearCodeBlock } from "./markdownPlugins/CodeBlockPlugin"
 import { LinearFileWithNodeView } from "./markdownPlugins/FilePlugin/LinearFileNodeView"
@@ -101,8 +106,8 @@ function hasTemporaryUpload(editor: EditorType): boolean {
   return found
 }
 
-function documentsMatch(editor: EditorType, document: object): boolean {
-  return JSON.stringify(editor.getJSON()) === JSON.stringify(document)
+function documentsMatch(current: JSONContent, document: object): boolean {
+  return JSON.stringify(trimTableCellWhitespace(current)) === JSON.stringify(document)
 }
 
 function getUploadedFileContent(file: File, assetUrl: string): JSONContent {
@@ -495,10 +500,22 @@ function ValidatedEditor(props: EditorProps) {
           return
         }
 
-        const markdown = currentEditor.getMarkdown()
-        const updatedInspection = inspectLinearMarkdown(markdown, contentExtensions)
-        const valid =
-          updatedInspection.ok && documentsMatch(currentEditor, updatedInspection.document)
+        const current = currentEditor.getJSON()
+        let updatedInspection = inspectLinearMarkdown(
+          currentEditor.getMarkdown(),
+          contentExtensions,
+        )
+        let valid = updatedInspection.ok && documentsMatch(current, updatedInspection.document)
+        if (!valid) {
+          // Some empty lines and line breaks at the very end can't be saved in Markdown. They carry
+          // nothing, so save without them instead of blocking.
+          const trimmed = trimDocumentEnd(current)
+          const markdown = currentEditor.markdown!.serialize(trimmed)
+          updatedInspection = inspectLinearMarkdown(markdown, contentExtensions)
+          valid =
+            updatedInspection.ok &&
+            documentsMatch(trimmed, trimDocumentEnd(updatedInspection.document))
+        }
         if (!valid || !updatedInspection.ok) {
           reportValidity(false)
           return
@@ -577,7 +594,7 @@ function ValidatedEditor(props: EditorProps) {
       pendingExternalRef.current = external
       return
     }
-    if (!documentsMatch(editor, inspection.document)) applyExternalValue(external)
+    if (!documentsMatch(editor.getJSON(), inspection.document)) applyExternalValue(external)
   }, [applyExternalValue, editable, editor, inspection, reportValidity, value])
 
   const handleBlur = () => {
@@ -709,11 +726,10 @@ function ValidatedEditor(props: EditorProps) {
                   type="button"
                   onClick={() => {
                     const { document, editor: retryEditor, file, range } = uploadStatus.retry!
-                    void uploadAndInsertFile(
-                      retryEditor,
-                      file,
-                      documentsMatch(retryEditor, document) ? range : undefined,
-                    )
+                    // The saved range is only valid if the document is exactly the same.
+                    const unchanged =
+                      JSON.stringify(retryEditor.getJSON()) === JSON.stringify(document)
+                    void uploadAndInsertFile(retryEditor, file, unchanged ? range : undefined)
                   }}
                 >
                   Retry

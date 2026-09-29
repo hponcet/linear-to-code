@@ -104,3 +104,30 @@ export function normalizeNavigationFilters(
   }
   return next
 }
+
+/** Pre-fill a new issue so it matches the current navigation, as Linear does from a filtered view. */
+export function newIssueDraft(
+  filters: NavigationFilters,
+  metadata: NavigationMetadata,
+  viewerId: string,
+) {
+  const {
+    teamId: filteredTeamId,
+    projectId,
+    cycle,
+    view,
+  } = normalizeNavigationFilters(filters, metadata)
+  const project = metadata.projects.find(({ id }) => id === projectId)
+  const filteredCycle =
+    typeof cycle === "object" ? metadata.cycles.find(({ id }) => id === cycle.id) : undefined
+  const teamId =
+    filteredTeamId ?? filteredCycle?.teamId ?? project?.teamIds[0] ?? metadata.teams[0]?.id
+  const activeCycle =
+    cycle === "current" ? metadata.cycles.find((c) => c.isActive && c.teamId === teamId) : undefined
+  return {
+    teamId,
+    projectId: teamId && project?.teamIds.includes(teamId) ? project.id : undefined,
+    cycleId: (filteredCycle ?? activeCycle)?.id,
+    assigneeId: view === "myIssues" ? viewerId : undefined,
+  }
+}

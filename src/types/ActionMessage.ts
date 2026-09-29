@@ -36,6 +36,7 @@ import {
 
 import type { NavigationSelector, NavigationSnapshot } from "./Navigation"
 import type { LinearWorkspace } from "src/linear/LinearWorkspaces"
+import type { NavigationMetadata } from "src/linear/navigation"
 
 export type Props = {
   issue: {
@@ -55,6 +56,11 @@ export type Props = {
     connection: LinearWorkspace | undefined
     initialTab?: "git" | "workflow" | "agent"
     tabRequestId?: number
+  }
+  createIssue: {
+    connection: LinearWorkspace | undefined
+    teams: NavigationMetadata["teams"]
+    draft: IssueUpdateFields
   }
 }
 
@@ -140,6 +146,7 @@ export type Message<K extends keyof Props = any> =
   | Action<"deleteReaction", { reactionId: string; issueId?: SerializedIssue["id"] }>
   | Action<"deleteAttachment", { attachmentId: string; issueId?: SerializedIssue["id"] }>
   | Action<"createAttachment", { issueId: string; url: string; title: string; iconUrl?: string }>
+  | Action<"createIssue", { teamId: string; fields: IssueUpdateFields }, SerializedIssue>
   | Action<
       "createSubIssue",
       { parentId: SerializedIssue["id"]; teamId: string; fields: IssueUpdateFields },

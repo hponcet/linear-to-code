@@ -9,6 +9,7 @@ Unofficial [Linear](https://linear.app) extension for VS Code and Cursor. Manage
 - Connect multiple Linear workspaces through Linear Connect and switch from the navigation header
 - Browse **All issues** or **My issues**, scoped to a team, a project, cycles, statuses, and one or more assignees
 - Search all issues in the active Linear workspace from the **Issues** view header
+- Create issues from the **Issues** view header in a panel that matches the issue view, pre-filled from the current navigation
 - Open issues in a rich React panel (TipTap editor, comments, sub-issues, attachments, history)
 - Drag and drop issues from the tree view to open them
 - Move issues between workflow states via drag and drop (multi-select supported)
@@ -77,6 +78,7 @@ Authentication continues to use `linear.linear-connect` and `authentication.getS
 
 ### Work on an issue
 
+- **Create**: click **+** in the **Issues** view header. The team, project, and cycle come from the navigation filters, **My issues** assigns the issue to you, and the status starts at the team's default. **Create Issue** becomes available once the issue has a title, a status, and a team; the form then closes and the new issue opens
 - **Open**: click an issue, use the context menu, or drag it to the editor
 - **Start work**: create/configure a Git branch from the context menu or inline play button
 - **Switch to branch**: switch to the issue branch (inline button when a branch is configured)
@@ -95,10 +97,11 @@ When a git provider is connected for the current repository:
 
 | Shortcut                                                                     | Command                       | Description                                         |
 | ---------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------- |
-| `Cmd+K I` or `Cmd+K Cmd+I` (Mac) / `Ctrl+K I` or `Ctrl+K Ctrl+I` (Win/Linux) | Open Issue for Current Branch | Open the Linear issue for the current Git branch    |
-| `Cmd+K L` or `Cmd+K Cmd+L` (Mac) / `Ctrl+K L` or `Ctrl+K Ctrl+L` (Win/Linux) | Search Linear Issues          | Search all issues in the connected Linear workspace |
+| `Cmd+K B` or `Cmd+K Cmd+B` (Mac) / `Ctrl+K B` or `Ctrl+K Ctrl+B` (Win/Linux) | Open Issue for Current Branch | Open the Linear issue for the current Git branch    |
+| `Cmd+K S` or `Cmd+K Cmd+S` (Mac) / `Ctrl+K S` or `Ctrl+K Ctrl+S` (Win/Linux) | Search Linear Issues          | Search all issues in the connected Linear workspace |
+| `Cmd+K A` or `Cmd+K Cmd+A` (Mac) / `Ctrl+K A` or `Ctrl+K Ctrl+A` (Win/Linux) | Create Issue                  | Open the new-issue form                             |
 
-In Cursor, these shortcuts start with `Cmd+R` (Mac) / `Ctrl+R` (Win/Linux) instead, following Cursor's chord prefix and leaving `Cmd+K` / `Ctrl+K` to Cursor's inline edit. For example, use `Cmd+R L` to search Linear issues.
+In Cursor, these shortcuts start with Cursor's own chord prefix instead: `Cmd+R` on Mac and `Ctrl+M` on Windows/Linux. This leaves `Cmd+K` / `Ctrl+K` to Cursor's inline edit. For example, use `Cmd+R S` to search Linear issues.
 
 ### Commands (selection)
 
@@ -106,6 +109,7 @@ In Cursor, these shortcuts start with `Cmd+R` (Mac) / `Ctrl+R` (Win/Linux) inste
 | -------------------------------- | ------------------------------------------------------ |
 | Connect / Disconnect from Linear | Authenticate or sign out                               |
 | Open Issue                       | Open issue in the editor panel                         |
+| Create Issue                     | Create an issue, then open it in the editor panel      |
 | Search Linear Issues             | Search all issues in the connected Linear workspace    |
 | Open on Linear                   | Open issue in the browser                              |
 | Start work on issue              | Branch setup workflow                                  |

@@ -6,7 +6,7 @@ import { WebviewRoot } from "./WebviewRoot"
 
 import "./styles/index.scss"
 
-moment.locale("en", {
+moment.updateLocale("en", {
   relativeTime: {
     future: "in %s",
     past: "%s ",

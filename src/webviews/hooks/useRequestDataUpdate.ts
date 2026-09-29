@@ -30,6 +30,7 @@ const MUTATION_OPERATIONS = new Set<IpcType<"req">>([
   "deleteReaction",
   "createAttachment",
   "deleteAttachment",
+  "createIssue",
   "createSubIssue",
   "deleteSubIssue",
   "uploadLinearFile",
@@ -50,6 +51,7 @@ const LINEAR_API_OPERATIONS = new Set<IpcType<"req">>([
   "getIssueHistory",
   "searchEditorMentions",
   "cancelLinearFileUpload",
+  "openIssue",
   ...MUTATION_OPERATIONS,
 ])
 

@@ -2,13 +2,16 @@ import * as assert from "assert"
 import { readFileSync } from "fs"
 import { resolve } from "path"
 
-import { Markdown } from "@tiptap/markdown"
+import { getSchema } from "@tiptap/core"
+import { Markdown, MarkdownManager } from "@tiptap/markdown"
 import { StarterKit } from "@tiptap/starter-kit"
 
 import {
   createLinearMarkdownExtensions,
   getCanonicalLinearMarkdown,
   inspectLinearMarkdown,
+  trimDocumentEnd,
+  trimTableCellWhitespace,
 } from "../../webviews/components/Editor/linearMarkdown"
 import { serializeLinearInlineCode } from "../../webviews/components/Editor/markdownPlugins/LinearInlineCode"
 import {
@@ -16,6 +19,8 @@ import {
   isSupportedVideoUrl,
   parseVideoMarkdown,
 } from "../../webviews/components/Editor/markdownPlugins/VideosPlugin/videoMarkdownDetection"
+
+import type { JSONContent } from "@tiptap/core"
 
 const fixtures = [
   {
@@ -679,5 +684,98 @@ suite("video Markdown detection", () => {
 
   test("finds a video token after plain text", () => {
     assert.strictEqual(findVideoMarkdown("Watch ![](https://youtu.be/dQw4w9WgXcQ)"), 6)
+  })
+
+  test("a table cell with surrounding spaces matches the document it saves as", () => {
+    const extensions = createLinearMarkdownExtensions()
+    const paragraph = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] })
+    const cell = (type: string, text: string) => ({ type, content: [paragraph(text)] })
+    const editorDocument = getSchema(extensions)
+      .nodeFromJSON({
+        type: "doc",
+        content: [
+          paragraph("kept "),
+          {
+            type: "table",
+            content: [
+              { type: "tableRow", content: [cell("tableHeader", " a "), cell("tableHeader", "b")] },
+              { type: "tableRow", content: [cell("tableCell", "c "), cell("tableCell", " ")] },
+            ],
+          },
+        ],
+      })
+      .toJSON()
+
+    const markdown = new MarkdownManager({ extensions }).serialize(editorDocument)
+    const inspection = inspectLinearMarkdown(markdown, extensions)
+
+    assert.strictEqual(inspection.ok, true)
+    if (inspection.ok) {
+      assert.deepStrictEqual(trimTableCellWhitespace(editorDocument), inspection.document)
+    }
+  })
+
+  test("empty lines and line breaks at the end match the description they save as", () => {
+    const extensions = createLinearMarkdownExtensions()
+    const schema = getSchema(extensions)
+    const text = (value: string) => ({ type: "text", text: value })
+    const paragraph = (...content: object[]) =>
+      content.length ? { type: "paragraph", content } : { type: "paragraph" }
+    const heading = (...content: object[]) => ({ type: "heading", attrs: { level: 1 }, content })
+    const hardBreak = { type: "hardBreak" }
+    const cases: [string, object[], string][] = [
+      ["an empty line after a heading", [heading(text("Title")), paragraph()], "# Title"],
+      [
+        "two empty lines after a heading",
+        [heading(text("Title")), paragraph(), paragraph()],
+        "# Title",
+      ],
+      ["only empty lines", [paragraph(), paragraph()], ""],
+      ["a trailing line break", [paragraph(text("Line"), hardBreak, hardBreak)], "Line"],
+      ["a heading line break", [heading(text("Title"), hardBreak)], "# Title"],
+      ["a line of spaces", [paragraph(text("Line")), paragraph(text("   "))], "Line"],
+      ["a line break then spaces", [paragraph(text("Line"), hardBreak, text("  "))], "Line"],
+      ["an empty heading", [paragraph(text("Line")), heading()], "Line"],
+      [
+        "a line break in the last list item",
+        [
+          {
+            type: "bulletList",
+            content: [{ type: "listItem", content: [paragraph(text("Item"), hardBreak)] }],
+          },
+        ],
+        "- Item",
+      ],
+    ]
+    const toDocument = (content: object[]) =>
+      schema.nodeFromJSON({ type: "doc", content }).toJSON() as JSONContent
+
+    for (const [name, content, expected] of cases) {
+      const editorDocument = trimDocumentEnd(toDocument(content))
+      const markdown = new MarkdownManager({ extensions }).serialize(editorDocument)
+      const inspection = inspectLinearMarkdown(markdown, extensions)
+
+      assert.strictEqual(inspection.ok, true, name)
+      if (inspection.ok) {
+        assert.strictEqual(inspection.markdown, expected, name)
+        assert.deepStrictEqual(trimDocumentEnd(inspection.document), editorDocument, name)
+      }
+    }
+
+    // Visible content is kept, so a save that would drop it stays blocked: an empty line between
+    // blocks, spaces that show because of a mark, and space characters that have a glyph.
+    const kept: object[][] = [
+      [heading(text("Title")), paragraph(), paragraph(text("A"))],
+      [paragraph(text("Line")), paragraph({ type: "text", text: " ", marks: [{ type: "code" }] })],
+      [
+        paragraph(text("Line")),
+        paragraph({ type: "text", text: " ", marks: [{ type: "strike" }] }),
+      ],
+      [paragraph(text("Line")), paragraph(text("\u1680"))],
+    ]
+    for (const content of kept) {
+      const document = toDocument(content)
+      assert.deepStrictEqual(trimDocumentEnd(document), document)
+    }
   })
 })

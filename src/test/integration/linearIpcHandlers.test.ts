@@ -278,6 +278,33 @@ suite("linearIpcHandlers integration", () => {
     assert.strictEqual(issue.title, "New sub-issue")
   })
 
+  test("createIssue creates in the requested team, refreshes My Issues and returns the issue", async () => {
+    const { issueActions, getRefreshIssuesCalls } = createIssueActions()
+    const calls: unknown[][] = []
+    const service = createMockService({
+      createIssue: async (...args: unknown[]) => {
+        calls.push(args)
+        return createMockSdkIssue({ id: "issue-3", identifier: "ENG-3", title: "New issue" })
+      },
+    })
+
+    const result = await handleLinearIpcMessage(
+      {
+        type: "createIssue",
+        teamId: "team-1",
+        fields: { title: "New issue", description: "", priority: 0 },
+      },
+      issueActions,
+      service,
+    )
+
+    assert.deepStrictEqual(calls, [
+      ["team-1", { title: "New issue", description: "", priority: 0 }],
+    ])
+    assert.strictEqual(getRefreshIssuesCalls(), 1)
+    assert.strictEqual(result.handled && (result.payload as SerializedIssue).identifier, "ENG-3")
+  })
+
   test("createComment delegates to LinearService", async () => {
     let createCommentCalled = false
     const service = createMockService({
@@ -317,6 +344,10 @@ suite("linearIpcHandlers integration", () => {
         mutationCalls += 1
         return createMockSdkIssue()
       },
+      createIssue: async () => {
+        mutationCalls += 1
+        return createMockSdkIssue()
+      },
     })
     const { issueActions } = createIssueActions()
 
@@ -341,6 +372,11 @@ suite("linearIpcHandlers integration", () => {
         parentId: "issue-1",
         teamId: "team-1",
         fields: { title: "Child", description: "<div>unsafe</div>" },
+      },
+      {
+        type: "createIssue" as const,
+        teamId: "team-1",
+        fields: { title: "New issue", description: "<div>unsafe</div>" },
       },
     ]
 

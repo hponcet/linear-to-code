@@ -1,3 +1,4 @@
+import { ReactNode } from "react"
 import { useDialog } from "rsuite"
 import { AssigneePicker } from "src/webviews/components/Assignee/AssigneePicker"
 import { CheckoutButton } from "src/webviews/components/ConfigureBranchButton/CheckoutButton"
@@ -19,7 +20,14 @@ import { useModalsContext } from "src/webviews/contexts/ModalsContext"
 
 import "./IssueHeader.css"
 
-export function IssueHeader() {
+type IssueHeaderProps = {
+  /** Rendered before the pickers. */
+  leading?: ReactNode
+  /** Replaces the actions that need an existing issue (branch, pull request, link, menu). */
+  actions?: ReactNode
+}
+
+export function IssueHeader({ leading, actions }: IssueHeaderProps) {
   const { issue, update } = useIssueContext()
 
   const { setIsCreatingAttachment } = useModalsContext()
@@ -29,6 +37,7 @@ export function IssueHeader() {
   return (
     <>
       <div className="issueHeaderTopRow">
+        {leading}
         {issue.trashed && (
           <span className="issueTrashedLabel">
             <TrashIcon /> Trashed
@@ -81,58 +90,66 @@ export function IssueHeader() {
             inline="icon"
             disabled={!!issue.trashed}
           />
-          {!issue.trashed && (
+          {actions ?? (
             <>
-              <CheckoutButton issue={issue} style={{ marginLeft: 6, padding: 0 }} inline="icon" />
-              <PullRequestButton
-                issue={issue}
-                style={{ marginLeft: 6, padding: 0 }}
-                inline="icon"
-              />
-              <ConfigureBranchButton
-                issue={issue}
-                style={{ marginLeft: 6, padding: 0 }}
-                inline="icon"
+              {!issue.trashed && (
+                <>
+                  <CheckoutButton
+                    issue={issue}
+                    style={{ marginLeft: 6, padding: 0 }}
+                    inline="icon"
+                  />
+                  <PullRequestButton
+                    issue={issue}
+                    style={{ marginLeft: 6, padding: 0 }}
+                    inline="icon"
+                  />
+                  <ConfigureBranchButton
+                    issue={issue}
+                    style={{ marginLeft: 6, padding: 0 }}
+                    inline="icon"
+                  />
+                </>
+              )}
+              <OpenExternalIssue issue={issue} style={{ marginLeft: 6, padding: 0 }} />
+              <Menu
+                items={[
+                  {
+                    label: "Add an attachment",
+                    action: () => setIsCreatingAttachment({}),
+                    icon: <LinkIcon size={14} />,
+                  },
+                  {
+                    label: "Copy issue link",
+                    action: () => window.navigator.clipboard.writeText(issue.url),
+                    icon: <LinkIcon size={14} />,
+                  },
+                  {
+                    label: "Settings",
+                    action: () => update.panelActions.openSettings(),
+                    icon: <CogIcon size={14} />,
+                  },
+                  {
+                    label: "Delete issue",
+                    icon: <TrashIcon size={14} />,
+                    action: async () => {
+                      const shouldDeleteIssue = await dialog.confirm(
+                        `Are you sure you want to delete issue ${issue.identifier}? This action cannot be undone.`,
+                        {
+                          title: `Delete Issue ${issue.identifier}`,
+                          okText: "Delete",
+                          severity: "error",
+                        },
+                      )
+                      if (shouldDeleteIssue) {
+                        await update.subIssues.deleteSubIssue(issue.id)
+                      }
+                    },
+                  },
+                ]}
               />
             </>
           )}
-          <OpenExternalIssue issue={issue} style={{ marginLeft: 6, padding: 0 }} />
-          <Menu
-            items={[
-              {
-                label: "Add an attachment",
-                action: () => setIsCreatingAttachment({}),
-                icon: <LinkIcon size={14} />,
-              },
-              {
-                label: "Copy issue link",
-                action: () => window.navigator.clipboard.writeText(issue.url),
-                icon: <LinkIcon size={14} />,
-              },
-              {
-                label: "Settings",
-                action: () => update.panelActions.openSettings(),
-                icon: <CogIcon size={14} />,
-              },
-              {
-                label: "Delete issue",
-                icon: <TrashIcon size={14} />,
-                action: async () => {
-                  const shouldDeleteIssue = await dialog.confirm(
-                    `Are you sure you want to delete issue ${issue.identifier}? This action cannot be undone.`,
-                    {
-                      title: `Delete Issue ${issue.identifier}`,
-                      okText: "Delete",
-                      severity: "error",
-                    },
-                  )
-                  if (shouldDeleteIssue) {
-                    await update.subIssues.deleteSubIssue(issue.id)
-                  }
-                },
-              },
-            ]}
-          />
         </div>
       </div>
       <LabelsPicker

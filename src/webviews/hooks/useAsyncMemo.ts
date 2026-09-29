@@ -1,6 +1,4 @@
-import { useState } from "react"
-
-import { useAsyncEffect } from "./useAsyncEffect"
+import { useEffect, useState } from "react"
 
 export function useAsyncMemo<T>(
   asyncFunction: (currentValue: T | null) => Promise<T>,
@@ -9,23 +7,28 @@ export function useAsyncMemo<T>(
   const [value, setValue] = useState<T | null>(null)
   const [isLoading, setLoading] = useState<boolean>(true)
 
-  useAsyncEffect(async () => {
-    let isMounted = true
+  useEffect(() => {
+    // Cleared synchronously when dependencies change, so a slower earlier request cannot win.
+    let current = true
 
     setLoading(true)
-    try {
-      const result = await asyncFunction(value)
-      if (isMounted) {
-        setValue(result)
+    void (async () => {
+      try {
+        const result = await asyncFunction(value)
+        if (current) {
+          setValue(result)
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        if (current) {
+          setLoading(false)
+        }
       }
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
+    })()
 
     return () => {
-      isMounted = false
+      current = false
     }
   }, dependencies)
 

@@ -3,7 +3,7 @@
   "displayName": "Linear in Editor",
   "description": "Get the entire Linear experience in your editor.",
   "icon": "resources/images/linear_dark.png",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "hpon",
   "repository": "https://github.com/hponcet/linear-to-code",
   "engines": {
@@ -190,6 +190,13 @@
         "enablement": "linearToCode:isLinearAuthenticated"
       },
       {
+        "command": "linearToCode.commands.createIssue",
+        "title": "Create Issue",
+        "icon": "$(add)",
+        "category": "Linear to Code",
+        "enablement": "linearToCode:isLinearAuthenticated"
+      },
+      {
         "command": "linearToCode.commands.openPullRequest",
         "title": "Create pull request",
         "icon": "$(git-pull-request-create)",
@@ -305,6 +312,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "linearToCode.commands.createIssue",
+          "when": "view == linearToCode.views.myIssues",
+          "group": "navigation"
+        },
         {
           "command": "linearToCode.commands.refresh",
           "when": "view == linearToCode.views.myIssues",
@@ -456,28 +468,52 @@
         "when": "linearToCode:isLinearAuthenticated && !linearToCode:isCursor"
       },
       {
+        "command": "linearToCode.commands.createIssue",
+        "key": "ctrl+k a",
+        "mac": "cmd+k a",
+        "when": "linearToCode:isLinearAuthenticated && !linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.createIssue",
+        "key": "ctrl+k ctrl+a",
+        "mac": "cmd+k cmd+a",
+        "when": "linearToCode:isLinearAuthenticated && !linearToCode:isCursor && !keybindingFocus"
+      },
+      {
         "command": "linearToCode.commands.openCurrentBranchIssue",
-        "key": "ctrl+r b",
+        "key": "ctrl+m b",
         "mac": "cmd+r b",
         "when": "linearToCode:isCursor"
       },
       {
         "command": "linearToCode.commands.openCurrentBranchIssue",
-        "key": "ctrl+r ctrl+b",
+        "key": "ctrl+m ctrl+b",
         "mac": "cmd+r cmd+b",
         "when": "linearToCode:isCursor"
       },
       {
         "command": "linearToCode.commands.searchIssues",
-        "key": "ctrl+r s",
+        "key": "ctrl+m s",
         "mac": "cmd+r s",
         "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor"
       },
       {
         "command": "linearToCode.commands.searchIssues",
-        "key": "ctrl+r ctrl+s",
+        "key": "ctrl+m ctrl+s",
         "mac": "cmd+r cmd+s",
         "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.createIssue",
+        "key": "ctrl+m a",
+        "mac": "cmd+r a",
+        "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor"
+      },
+      {
+        "command": "linearToCode.commands.createIssue",
+        "key": "ctrl+m ctrl+a",
+        "mac": "cmd+r cmd+a",
+        "when": "linearToCode:isLinearAuthenticated && linearToCode:isCursor && !keybindingFocus"
       }
     ]
   },

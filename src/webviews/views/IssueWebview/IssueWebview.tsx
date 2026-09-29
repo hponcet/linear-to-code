@@ -15,7 +15,7 @@ import { IssueContent } from "./IssueContent"
 import "./IssueWebview.scss"
 
 export default function IssueWebview() {
-  const [props, loaded] = useProps()
+  const [props, loaded] = useProps<"issue">()
   const { issueId, connection } = props
 
   if (!issueId || !connection) {

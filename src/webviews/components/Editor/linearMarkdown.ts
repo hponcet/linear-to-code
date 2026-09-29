@@ -992,3 +992,69 @@ export function getCanonicalLinearMarkdown(source: string): string | undefined {
   const inspection = inspectLinearMarkdown(source)
   return inspection.ok ? inspection.markdown : undefined
 }
+
+/**
+ * Markdown table cells can't keep leading or trailing spaces, so a cell such as "text " is saved
+ * as "text". Trimming them lets the editor's document match what will be saved.
+ */
+export function trimTableCellWhitespace(document: JSONContent): JSONContent {
+  if (document.type !== "tableCell" && document.type !== "tableHeader") {
+    return document.content
+      ? { ...document, content: document.content.map(trimTableCellWhitespace) }
+      : document
+  }
+
+  return {
+    ...document,
+    content: document.content?.map((paragraph) => {
+      const content = [...(paragraph.content ?? [])]
+      const first = content[0]
+      if (first?.type === "text") content[0] = { ...first, text: first.text?.trimStart() }
+      const last = content[content.length - 1]
+      if (last?.type === "text")
+        content[content.length - 1] = { ...last, text: last.text?.trimEnd() }
+      const trimmed = content.filter((node) => node.type !== "text" || node.text)
+      const { content: _, ...rest } = paragraph
+      return trimmed.length ? { ...rest, content: trimmed } : rest
+    }),
+  }
+}
+
+// Only plain spaces are invisible: marked text (inline code, link, strike) shows even when blank.
+const isBlankInline = (node: JSONContent) =>
+  node.type === "hardBreak" ||
+  (node.type === "text" && !node.marks?.length && /^[ \t\u00a0]*$/.test(node.text ?? ""))
+
+const isTextblock = (node: JSONContent | undefined) =>
+  node?.type === "paragraph" || node?.type === "heading"
+
+/** Removes line breaks and spaces that end the last line, however deeply it is nested. */
+function trimLastLine(node: JSONContent): JSONContent {
+  const content = [...(node.content ?? [])]
+  if (isTextblock(node)) {
+    while (content.length && isBlankInline(content[content.length - 1])) content.pop()
+    const { content: _, ...rest } = node
+    return content.length ? { ...rest, content } : rest
+  }
+  const last = content[content.length - 1]
+  if (!last) return node
+  content[content.length - 1] = trimLastLine(last)
+  return { ...node, content }
+}
+
+/**
+ * Markdown can't keep some empty lines and line breaks at the very end of a description, such as an
+ * empty line after a heading or a trailing Shift+Enter. They carry nothing, so the editor retries
+ * without them when a save would otherwise be refused. Empty lines between blocks are kept: they
+ * are content that must not disappear silently.
+ */
+export function trimDocumentEnd(document: JSONContent): JSONContent {
+  const content = [...(document.content ?? [])]
+  while (
+    isTextblock(content[content.length - 1]) &&
+    (content[content.length - 1].content ?? []).every(isBlankInline)
+  ) {
+    content.pop()
+  }
+  return trimLastLine({ ...document, content })
+}

@@ -19,6 +19,7 @@ module.exports = {
     issue: resolveApp("./src/webviews/entries/issue.tsx"),
     settings: resolveApp("./src/webviews/entries/settings.tsx"),
     startWork: resolveApp("./src/webviews/entries/startWork.tsx"),
+    createIssue: resolveApp("./src/webviews/entries/createIssue.tsx"),
   },
   devtool: isProduction ? undefined : "eval-source-map",
 

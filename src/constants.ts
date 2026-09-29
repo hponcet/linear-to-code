@@ -11,12 +11,14 @@ export enum Webviews {
   issueWebview = "issue",
   startWorkWebview = "startWork",
   settingsWebview = "settings",
+  createIssueWebview = "createIssue",
 }
 
 export enum Commands {
   connect = "linearToCode.connect",
   disconnect = "linearToCode.disconnect",
   openIssue = "linearToCode.commands.openIssue",
+  createIssue = "linearToCode.commands.createIssue",
   openIssueExternal = "linearToCode.commands.openIssueExternal",
   openCurrentBranchIssue = "linearToCode.commands.openCurrentBranchIssue",
   startWork = "linearToCode.commands.startWork",

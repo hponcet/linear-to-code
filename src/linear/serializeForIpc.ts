@@ -65,6 +65,7 @@ export function serializeTeam(team: Team): SerializedTeam {
     key: team.key,
     issueEstimationType: team.issueEstimationType,
     issueEstimationAllowZero: team.issueEstimationAllowZero,
+    defaultIssueStateId: team.defaultIssueStateId,
   }
 }
 

@@ -171,6 +171,12 @@ export async function handleLinearIpcMessage(
         payload: { cancelled: service.cancelLinearFileUpload(msg.uploadId) },
       }
     }
+    case "createIssue": {
+      const createdIssue = await service.createIssue(msg.teamId, validateDescription(msg.fields))
+      // Answer before the paginated reload: a slow refresh must not look like a failed create.
+      void issueActions.refreshIssues()
+      return { handled: true, payload: serializeIssue(createdIssue) }
+    }
     case "createSubIssue": {
       const createdIssue = await service.createSubIssue(
         msg.parentId,

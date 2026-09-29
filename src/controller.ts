@@ -89,6 +89,7 @@ export class Controller {
   public static dispose() {
     this.workspaceViews.forEach((view) => view.dispose())
     this.workspaceViews.clear()
+    MyIssuesView.disposeTreeView()
     this.initialized = false
     this._pullRequestsView?.dispose()
     this._issueViewer = undefined
